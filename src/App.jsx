@@ -5,6 +5,14 @@ import Hero from './components/sections/Hero';
 import BrandMarquee from './components/sections/BrandMarquee';
 import ProductCatalog from './components/sections/ProductCatalog';
 import AboutSection from './components/sections/AboutSection';
+import ShopPage from './pages/ShopPage';
+import ProductPage from './pages/ProductPage';
+import CartPage from './pages/CartPage';
+import AdminPanel from './pages/AdminPanel';
+import AdminLogin from './pages/AdminLogin';
+import { StoreProvider } from './store/useStore.jsx';
+import { useAuth } from './store/useAuth.js';
+import { useRouter } from './router.jsx';
 import './index.css';
 
 const WhatsAppSVG = () => (
@@ -13,29 +21,64 @@ const WhatsAppSVG = () => (
   </svg>
 );
 
-function App() {
+const HomePage = () => (
+  <main id="home">
+    <Hero />
+    <BrandMarquee />
+    <ProductCatalog />
+    <AboutSection />
+  </main>
+);
+
+// Inner app that has access to both router and auth
+function AppInner() {
+  const location = useRouter();
+  const { isLoggedIn, login, logout } = useAuth();
+  const isAdmin = location.route === 'admin';
+
+  React.useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [location.route, location.id]);
+
+  const renderPage = () => {
+    switch (location.route) {
+      case 'home':    return <HomePage />;
+      case 'shop':    return <ShopPage />;
+      case 'product': return <ProductPage id={location.id} />;
+      case 'cart':    return <CartPage />;
+      case 'admin':
+        return isLoggedIn
+          ? <AdminPanel onLogout={logout} />
+          : <AdminLogin onLogin={login} />;
+      default:        return <HomePage />;
+    }
+  };
+
   return (
     <>
-      <Navbar />
-      <main>
-        <Hero />
-        <BrandMarquee />
-        <ProductCatalog />
-        <AboutSection />
-      </main>
-      <Footer />
-
-      {/* Floating WhatsApp Button */}
-      <a
-        href="https://wa.me/919745298723"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="whatsapp-fab"
-        aria-label="Chat on WhatsApp"
-      >
-        <WhatsAppSVG />
-      </a>
+      <Navbar currentRoute={location.route} />
+      {renderPage()}
+      {!isAdmin && <Footer />}
+      {!isAdmin && (
+        <a
+          href="https://wa.me/919745298723"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="whatsapp-fab"
+          aria-label="Chat on WhatsApp"
+        >
+          <WhatsAppSVG />
+        </a>
+      )}
     </>
+  );
+}
+
+function App() {
+  return (
+    <StoreProvider>
+      <AppInner />
+    </StoreProvider>
   );
 }
 

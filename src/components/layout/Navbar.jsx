@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { useStore } from '../../store/useStore.jsx';
+import { navigate } from '../../router.jsx';
 
 const WhatsAppSVG = () => (
   <svg style={{ width: '22px', height: '22px', fill: 'currentColor' }} viewBox="0 0 24 24">
@@ -6,8 +8,10 @@ const WhatsAppSVG = () => (
   </svg>
 );
 
-const Navbar = () => {
+const Navbar = ({ currentRoute }) => {
   const [isScrolled, setIsScrolled] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { cartCount } = useStore();
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 50);
@@ -15,36 +19,153 @@ const Navbar = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Close mobile menu on route change
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [currentRoute]);
+
+  const isHome = currentRoute === 'home';
+
+  const handleNavClick = (e, hash) => {
+    e.preventDefault();
+    if (hash.startsWith('#/')) {
+      navigate(hash);
+    } else {
+      // Anchor link — go home first then scroll
+      if (!isHome) {
+        navigate('#/');
+        setTimeout(() => {
+          const el = document.querySelector(hash);
+          if (el) el.scrollIntoView({ behavior: 'smooth' });
+        }, 300);
+      } else {
+        const el = document.querySelector(hash);
+        if (el) el.scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+    setMobileMenuOpen(false);
+  };
+
   return (
-    <header className={`site-header ${isScrolled ? 'scrolled' : ''}`}>
-      <div className="container inner">
-        <a href="#home" className="logo">
-          <img src="/logo.png" alt="Lekha Script – Inner Concepts" />
-        </a>
-
-        <nav className="desktop-nav">
-          <a href="#home" className="active">Home</a>
-          <a href="#collections">Collections</a>
-          <a href="#about">About</a>
-          <a href="#contact">Contact</a>
-        </nav>
-
-        <div className="header-actions">
-          <a
-            href="https://wa.me/919745298723"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Order on WhatsApp"
-            className="whatsapp-icon-btn"
-          >
-            <WhatsAppSVG />
+    <>
+      <header className={`site-header ${isScrolled ? 'scrolled' : ''}`}>
+        <div className="container inner">
+          {/* Logo */}
+          <a href="#/" className="logo" onClick={(e) => handleNavClick(e, '#/')}>
+            <img src="/logo.png" alt="Lekha Script – Inner Concepts" />
           </a>
-          <button className="mobile-menu-btn" aria-label="Open menu">
-            <span className="material-symbols-outlined">menu</span>
-          </button>
+
+          {/* Desktop nav */}
+          <nav className="desktop-nav" aria-label="Main navigation">
+            <a
+              href="#/"
+              className={currentRoute === 'home' ? 'active' : ''}
+              onClick={(e) => handleNavClick(e, '#/')}
+            >
+              Home
+            </a>
+            <a
+              href="#/shop"
+              className={currentRoute === 'shop' || currentRoute === 'product' ? 'active' : ''}
+              onClick={(e) => handleNavClick(e, '#/shop')}
+            >
+              Shop
+            </a>
+            <a
+              href="#about"
+              onClick={(e) => handleNavClick(e, '#about')}
+            >
+              About
+            </a>
+            <a
+              href="#contact"
+              onClick={(e) => handleNavClick(e, '#contact')}
+            >
+              Contact
+            </a>
+
+          </nav>
+
+          {/* Actions */}
+          <div className="header-actions">
+            {/* WhatsApp */}
+            <a
+              href="https://wa.me/919745298723"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Order on WhatsApp"
+              className="whatsapp-icon-btn"
+            >
+              <WhatsAppSVG />
+            </a>
+
+            {/* Cart */}
+            <button
+              className="cart-icon-btn"
+              onClick={() => navigate('#/cart')}
+              aria-label={`Cart (${cartCount} items)`}
+              id="cart-nav-btn"
+            >
+              <span className="material-symbols-outlined">shopping_bag</span>
+              {cartCount > 0 && (
+                <span className="cart-badge" aria-hidden="true">{cartCount > 99 ? '99+' : cartCount}</span>
+              )}
+            </button>
+
+            {/* Mobile menu toggle */}
+            <button
+              className="mobile-menu-btn"
+              aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+              onClick={() => setMobileMenuOpen(o => !o)}
+              id="mobile-menu-toggle"
+            >
+              <span className="material-symbols-outlined">
+                {mobileMenuOpen ? 'close' : 'menu'}
+              </span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Mobile drawer */}
+      <div className={`mobile-drawer ${mobileMenuOpen ? 'open' : ''}`} role="navigation" aria-label="Mobile navigation">
+        <div className="mobile-drawer-inner">
+          <nav className="mobile-nav">
+            <a href="#/" onClick={(e) => handleNavClick(e, '#/')}>
+              <span className="material-symbols-outlined">home</span>
+              Home
+            </a>
+            <a href="#/shop" onClick={(e) => handleNavClick(e, '#/shop')}>
+              <span className="material-symbols-outlined">storefront</span>
+              Shop
+            </a>
+            <a href="#about" onClick={(e) => handleNavClick(e, '#about')}>
+              <span className="material-symbols-outlined">info</span>
+              About
+            </a>
+            <a href="#contact" onClick={(e) => handleNavClick(e, '#contact')}>
+              <span className="material-symbols-outlined">call</span>
+              Contact
+            </a>
+            <a href="#/cart" onClick={(e) => handleNavClick(e, '#/cart')} className="mobile-cart-link">
+              <span className="material-symbols-outlined">shopping_bag</span>
+              Cart
+              {cartCount > 0 && <span className="mobile-cart-count">{cartCount}</span>}
+            </a>
+
+          </nav>
         </div>
       </div>
-    </header>
+
+      {/* Overlay to close mobile menu */}
+      {mobileMenuOpen && (
+        <div
+          className="mobile-overlay"
+          onClick={() => setMobileMenuOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+    </>
   );
 };
 
