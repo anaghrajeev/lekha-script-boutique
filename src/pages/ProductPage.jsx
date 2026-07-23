@@ -19,6 +19,55 @@ function Toast({ message, visible }) {
   );
 }
 
+function SizeChartModal({ onClose }) {
+  const cellStyle = { padding: '12px 8px', borderBottom: '1px solid var(--outline-variant)', textAlign: 'center', fontSize: '14px' };
+  const thStyle = { ...cellStyle, fontWeight: '600', color: 'var(--on-surface)' };
+  
+  return (
+    <div className="admin-form-overlay" role="dialog" aria-modal="true" style={{ zIndex: 1000 }}>
+      <div className="admin-form-card" style={{ maxWidth: '800px', width: '95%' }}>
+        <div className="admin-form-header">
+          <h2 className="text-headline-md">Size Chart</h2>
+          <button className="admin-close-btn" onClick={onClose}>
+            <span className="material-symbols-outlined">close</span>
+          </button>
+        </div>
+        <div className="admin-form-scroll" style={{ padding: '24px', overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '600px' }}>
+            <tbody>
+              <tr>
+                <th style={{ ...thStyle, textAlign: 'left' }}>Bra Size</th>
+                <td style={cellStyle}>28</td><td style={cellStyle}>30</td><td style={cellStyle}>32</td><td style={cellStyle}>34</td><td style={cellStyle}>36</td><td style={cellStyle}>38</td><td style={cellStyle}>40</td><td style={cellStyle}>42</td>
+              </tr>
+              <tr>
+                <th style={{ ...thStyle, textAlign: 'left' }}>Under-bust (cm)</th>
+                <td style={cellStyle}>58-62</td><td style={cellStyle}>63-67</td><td style={cellStyle}>68-72</td><td style={cellStyle}>73-77</td><td style={cellStyle}>78-82</td><td style={cellStyle}>83-87</td><td style={cellStyle}>88-92</td><td style={cellStyle}>93-97</td>
+              </tr>
+              <tr>
+                <th rowSpan="4" style={{ ...thStyle, textAlign: 'left', verticalAlign: 'middle' }}>Over-bust (cm)</th>
+                <th style={{ ...thStyle, border: '1px solid var(--outline-variant)' }}>A</th>
+                <td style={cellStyle}>72-74</td><td style={cellStyle}>77-79</td><td style={cellStyle}>82-84</td><td style={cellStyle}>87-89</td><td style={cellStyle}>92-94</td><td style={cellStyle}>97-99</td><td style={cellStyle}>102-104</td><td style={cellStyle}>107-109</td>
+              </tr>
+              <tr>
+                <th style={{ ...thStyle, border: '1px solid var(--outline-variant)' }}>B</th>
+                <td style={cellStyle}>74-76</td><td style={cellStyle}>79-81</td><td style={cellStyle}>84-86</td><td style={cellStyle}>89-91</td><td style={cellStyle}>94-96</td><td style={cellStyle}>99-101</td><td style={cellStyle}>104-106</td><td style={cellStyle}>109-111</td>
+              </tr>
+              <tr>
+                <th style={{ ...thStyle, border: '1px solid var(--outline-variant)' }}>C</th>
+                <td style={cellStyle}>76-78</td><td style={cellStyle}>81-83</td><td style={cellStyle}>86-88</td><td style={cellStyle}>91-93</td><td style={cellStyle}>96-98</td><td style={cellStyle}>101-103</td><td style={cellStyle}>106-108</td><td style={cellStyle}>111-113</td>
+              </tr>
+              <tr>
+                <th style={{ ...thStyle, border: '1px solid var(--outline-variant)' }}>D</th>
+                <td style={cellStyle}>78-80</td><td style={cellStyle}>83-85</td><td style={cellStyle}>88-90</td><td style={cellStyle}>93-95</td><td style={cellStyle}>98-100</td><td style={cellStyle}>103-105</td><td style={cellStyle}>108-110</td><td style={cellStyle}>113-115</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ProductPage({ id }) {
   const { getProduct, getBrand, addToCart, incrementClick, loading } = useStore();
   const product = getProduct(id);
@@ -28,6 +77,7 @@ export default function ProductPage({ id }) {
   const [customSize,   setCustomSize]   = useState('');
   const [qty,          setQty]          = useState(1);
   const [sizeError,    setSizeError]    = useState(false);
+  const [showSizeChart,setShowSizeChart] = useState(false);
   const [toast,        setToast]        = useState({ visible: false, message: '' });
 
   // Track click / view — runs once when product is found
@@ -140,6 +190,7 @@ export default function ProductPage({ id }) {
   return (
     <div className="product-detail-page">
       <Toast message={toast.message} visible={toast.visible} />
+      {showSizeChart && <SizeChartModal onClose={() => setShowSizeChart(false)} />}
 
       <div className="container">
         {/* Breadcrumb */}
@@ -196,8 +247,12 @@ export default function ProductPage({ id }) {
             {/* Size selector — standard */}
             {product.size_type === 'standard' && product.sizes?.length > 0 && (
               <div className="size-section">
-                <div className="size-section-header">
+                <div className="size-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span>Select Size</span>
+                  <button type="button" className="btn-text" style={{ fontSize: '13px', color: 'var(--primary)', padding: '0', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => setShowSizeChart(true)}>
+                    <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>straighten</span>
+                    Size Chart
+                  </button>
                 </div>
                 <div className="size-buttons">
                   {product.sizes.map((s) => (
@@ -217,8 +272,12 @@ export default function ProductPage({ id }) {
             {/* Size selector — custom */}
             {product.size_type === 'custom' && (
               <div className="size-section">
-                <div className="size-section-header">
+                <div className="size-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span>Enter Your Size / Measurement</span>
+                  <button type="button" className="btn-text" style={{ fontSize: '13px', color: 'var(--primary)', padding: '0', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => setShowSizeChart(true)}>
+                    <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>straighten</span>
+                    Size Chart
+                  </button>
                 </div>
                 <input
                   className={`custom-size-input ${sizeError ? 'input-error' : ''}`}
