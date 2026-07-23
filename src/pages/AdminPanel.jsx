@@ -2,8 +2,6 @@ import React, { useState, useCallback } from 'react';
 import { useStore } from '../store/useStore.jsx';
 import { navigate } from '../router.jsx';
 
-const STANDARD_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL'];
-
 const emptyForm = {
   brand_id:    '',
   name:        '',
@@ -33,10 +31,27 @@ function ConfirmDialog({ message, onConfirm, onCancel }) {
 }
 
 // ── Product Form ──────────────────────────────────────────────────────────────
-function ProductForm({ initial, brands, onSave, onCancel, editingId, saving }) {
+function ProductForm({ initial, brands, availableSizes = [], onAddSize, onSave, onCancel, editingId, saving }) {
   const [form,         setForm]         = useState(initial || emptyForm);
   const [newBrandName, setNewBrandName] = useState('');
   const [errors,       setErrors]       = useState({});
+  const [showAddSize,  setShowAddSize]  = useState(false);
+  const [newSizeName,  setNewSizeName]  = useState('');
+  const [addingSize,   setAddingSize]   = useState(false);
+
+  const handleAddSize = async () => {
+    if (!newSizeName.trim()) return;
+    setAddingSize(true);
+    try {
+      await onAddSize(newSizeName.trim().toUpperCase());
+      setNewSizeName('');
+      setShowAddSize(false);
+    } catch (err) {
+      alert('Error adding size: ' + err.message);
+    } finally {
+      setAddingSize(false);
+    }
+  };
 
   const set = (field, value) => {
     setForm((f) => ({ ...f, [field]: value }));
@@ -203,7 +218,7 @@ function ProductForm({ initial, brands, onSave, onCancel, editingId, saving }) {
               <div className="form-group">
                 <label>Available Sizes</label>
                 <div className="size-checkbox-group">
-                  {STANDARD_SIZES.map((s) => (
+                  {availableSizes.map((s) => (
                     <button
                       key={s}
                       type="button"
@@ -213,6 +228,41 @@ function ProductForm({ initial, brands, onSave, onCancel, editingId, saving }) {
                       {s}
                     </button>
                   ))}
+                  
+                  {showAddSize ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <input 
+                        type="text" 
+                        value={newSizeName}
+                        onChange={(e) => setNewSizeName(e.target.value)}
+                        placeholder="e.g. 4XL"
+                        style={{ width: '60px', padding: '6px', borderRadius: '4px', border: '1px solid var(--outline)', fontSize: '13px' }}
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddSize();
+                          }
+                        }}
+                      />
+                      <button type="button" className="admin-icon-btn" onClick={handleAddSize} disabled={addingSize}>
+                        <span className="material-symbols-outlined" style={{fontSize: '18px'}}>check</span>
+                      </button>
+                      <button type="button" className="admin-icon-btn" onClick={() => setShowAddSize(false)}>
+                        <span className="material-symbols-outlined" style={{fontSize: '18px'}}>close</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="size-btn"
+                      style={{ padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      onClick={() => setShowAddSize(true)}
+                      title="Add new size option"
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>add</span>
+                    </button>
+                  )}
                 </div>
                 {errors.sizes && <span className="form-error">{errors.sizes}</span>}
               </div>
@@ -358,9 +408,9 @@ function BrandManager({ brands, products, onAddBrand, onDeleteBrand, onUpdateBra
 // ── Main AdminPanel ───────────────────────────────────────────────────────────
 export default function AdminPanel({ onLogout }) {
   const {
-    products, brands, cart,
+    products, brands, cart, availableSizes,
     addProduct, updateProduct, deleteProduct,
-    addBrand, deleteBrand, updateBrand,
+    addBrand, deleteBrand, updateBrand, addSize,
     loading,
   } = useStore();
 
@@ -445,6 +495,8 @@ export default function AdminPanel({ onLogout }) {
               : emptyForm
           }
           brands={brands}
+          availableSizes={availableSizes}
+          onAddSize={addSize}
           editingId={editingProduct?.id}
           saving={saving}
           onSave={handleSave}

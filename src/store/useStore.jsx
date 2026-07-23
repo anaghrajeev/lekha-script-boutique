@@ -20,8 +20,9 @@ const makeSlug = (name) =>
 const StoreContext = createContext(null);
 
 export function StoreProvider({ children }) {
-  const [products, setProducts] = useState([]);
-  const [brands,   setBrands]   = useState([]);
+  const [products,       setProducts]       = useState([]);
+  const [brands,         setBrands]         = useState([]);
+  const [availableSizes, setAvailableSizes] = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState(null);
   const [cart,     setCart]     = useState(loadCart);
@@ -34,18 +35,21 @@ export function StoreProvider({ children }) {
     setLoading(true);
     setError(null);
     try {
-      const [{ data: prods, error: e1 }, { data: brnds, error: e2 }] =
+      const [{ data: prods, error: e1 }, { data: brnds, error: e2 }, { data: sizesData, error: e3 }] =
         await Promise.all([
           supabase
             .from('products')
             .select('*, brand:brands(id, name, slug)')
             .order('created_at', { ascending: false }),
           supabase.from('brands').select('*').order('name'),
+          supabase.from('sizes').select('*').order('created_at'),
         ]);
       if (e1) throw e1;
       if (e2) throw e2;
+      if (e3) throw e3;
       setProducts(prods || []);
       setBrands(brnds || []);
+      setAvailableSizes(sizesData ? sizesData.map(s => s.name) : []);
     } catch (err) {
       console.error('Supabase fetch error:', err);
       setError(err?.message || 'Failed to load data.');
@@ -140,6 +144,18 @@ export function StoreProvider({ children }) {
     setBrands((prev) => prev.filter((b) => b.id !== id));
   }, []);
 
+  // ── Size CRUD ─────────────────────────────────────────────────────────────
+  const addSize = useCallback(async (name) => {
+    const { data: newSize, error } = await supabase
+      .from('sizes')
+      .insert([{ name }])
+      .select()
+      .single();
+    if (error) throw error;
+    setAvailableSizes((prev) => [...prev, newSize.name]);
+    return newSize.name;
+  }, []);
+
   // ── Cart (localStorage only) ──────────────────────────────────────────────
   const addToCart = useCallback((product, size, qty = 1) => {
     setCart((prev) => {
@@ -190,10 +206,10 @@ export function StoreProvider({ children }) {
 
   // ── Context value ─────────────────────────────────────────────────────────
   const value = {
-    products, brands, cart, cartCount, cartTotal, loading, error,
+    products, brands, availableSizes, cart, cartCount, cartTotal, loading, error,
     fetchData,
     addProduct, updateProduct, deleteProduct, incrementClick,
-    addBrand, updateBrand, deleteBrand,
+    addBrand, updateBrand, deleteBrand, addSize,
     addToCart, removeFromCart, updateCartQty, clearCart,
     getBrand, getProduct, getProductsByBrand, getTopProducts,
   };
