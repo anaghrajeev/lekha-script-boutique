@@ -1,6 +1,8 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { useStore } from '../store/useStore.jsx';
 import { navigate } from '../router.jsx';
+import { initializePayment } from '../lib/razorpay.js';
+import { toast } from 'react-hot-toast';
 
 const WHATSAPP_NUMBER = '919745298723';
 
@@ -27,7 +29,11 @@ function CartItemRow({ item, onQtyChange, onRemove }) {
       {/* Info */}
       <div className="cart-item-info">
         <p className="cart-item-name">{item.name}</p>
-        <p className="cart-item-meta">Size: <strong>{item.size}</strong></p>
+        <p className="cart-item-meta">
+          {item.size && <span>Size: <strong>{item.size}</strong></span>}
+          {item.size && item.colour && <span> | </span>}
+          {item.colour && <span>Color: <strong>{item.colour}</strong></span>}
+        </p>
         <p className="cart-item-unit-price">₹{item.price.toLocaleString()} each</p>
       </div>
 
@@ -68,31 +74,75 @@ function CartItemRow({ item, onQtyChange, onRemove }) {
 
 // ── Main CartPage ─────────────────────────────────────────────────────────────
 export default function CartPage() {
-  const { cart, cartTotal, removeFromCart, updateCartQty, clearCart } = useStore();
+  const { cart, cartTotal, removeFromCart, updateCartQty, clearCart, placeOnlineOrder, storeSettings } = useStore();
+  
+  const [showCheckout, setShowCheckout] = useState(() => {
+    return window.location.hash.includes('checkout=true');
+  });
+  
+  // Listen for hash changes if user navigates to #/cart?checkout=true while already on cart page
+  useEffect(() => {
+    const handleHashChange = () => {
+      if (window.location.hash.includes('checkout=true')) {
+        setShowCheckout(true);
+      }
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
 
-  const buildWhatsAppMessage = useCallback(() => {
-    if (cart.length === 0) return '';
-    const itemLines = cart.map((item, i) =>
-      `${i + 1}. ${item.name} (Size: ${item.size}) × ${item.qty} = ₹${(item.price * item.qty).toLocaleString()}`
+  const [orderPlaced, setOrderPlaced] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [customer, setCustomer] = useState({ name: '', phone: '', address: '' });
+
+  const deliveryFee = storeSettings && cartTotal < (storeSettings.free_delivery_threshold || 0)
+    ? (storeSettings.delivery_charge || 0)
+    : 0;
+  const finalTotal = cartTotal + deliveryFee;
+
+  const submitOrder = async (e) => {
+    e.preventDefault();
+    if (!customer.name || !customer.phone || !customer.address) {
+      toast.error("Please fill all details");
+      return;
+    }
+    
+    initializePayment({
+      amount: finalTotal,
+      customerName: customer.name,
+      customerPhone: customer.phone,
+      onSuccess: async (paymentDetails) => {
+        setLoading(true);
+        try {
+          // You could optionally pass paymentDetails to placeOnlineOrder to save paymentId in the DB
+          await placeOnlineOrder(customer);
+          setOrderPlaced(true);
+          setShowCheckout(false);
+          toast.success("Order placed successfully!");
+        } catch (err) {
+          toast.error("Failed to record order: " + err.message);
+        } finally {
+          setLoading(false);
+        }
+      },
+      onError: (err) => {
+        console.error("Payment Error:", err);
+      }
+    });
+  };
+
+  if (orderPlaced) {
+    return (
+      <div className="cart-page">
+        <div className="container" style={{ textAlign: 'center', padding: '64px 0' }}>
+           <span className="material-symbols-outlined" style={{ fontSize: '64px', color: 'var(--whatsapp)' }}>check_circle</span>
+           <h1 className="text-headline-lg" style={{ marginTop: '24px' }}>Order Placed Successfully!</h1>
+           <p className="text-body-md" style={{ marginTop: '12px' }}>Thank you! We will process your order and contact you shortly.</p>
+           <button className="btn btn-primary" style={{ marginTop: '24px' }} onClick={() => navigate('#/shop')}>Return to Shop</button>
+        </div>
+      </div>
     );
-    const lines = [
-      `🛍️ *Cart Order — Lekha Script Boutique*`,
-      ``,
-      ...itemLines,
-      ``,
-      `*Total: ₹${cartTotal.toLocaleString()}*`,
-      ``,
-      `Please confirm availability and share payment details.`,
-      `Thank you! 🙏`,
-    ];
-    return encodeURIComponent(lines.join('\n'));
-  }, [cart, cartTotal]);
-
-  const handleCheckout = useCallback(() => {
-    const msg = buildWhatsAppMessage();
-    if (!msg) return;
-    window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${msg}`, '_blank', 'noopener,noreferrer');
-  }, [buildWhatsAppMessage]);
+  }
 
   return (
     <div className="cart-page">
@@ -161,38 +211,54 @@ export default function CartPage() {
                 ))}
               </div>
 
-              <div className="summary-divider" />
+              <div className="summary-total-row" style={{ fontWeight: '400', fontSize: '16px' }}>
+                <span>Subtotal</span>
+                <span className="summary-total">₹{cartTotal.toLocaleString()}</span>
+              </div>
+              
+              {storeSettings && (
+                <div className="summary-total-row" style={{ fontWeight: '400', fontSize: '16px', marginTop: '12px' }}>
+                  <span>Delivery Charge</span>
+                  <span className="summary-total">
+                    {deliveryFee > 0 ? `₹${deliveryFee.toLocaleString()}` : 'Free'}
+                  </span>
+                </div>
+              )}
+
+              <div className="summary-divider" style={{ margin: '16px 0' }} />
 
               <div className="summary-total-row">
                 <span>Total</span>
-                <span className="summary-total">₹{cartTotal.toLocaleString()}</span>
+                <span className="summary-total">₹{finalTotal.toLocaleString()}</span>
               </div>
 
-              {cartTotal < 2000 && (
-                <div className="shipping-notice">
-                  <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>local_shipping</span>
-                  Add ₹{(2000 - cartTotal).toLocaleString()} more for free shipping
-                </div>
+              {showCheckout ? (
+                <form onSubmit={submitOrder} style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <input type="text" placeholder="Full Name" required value={customer.name} onChange={e => setCustomer({...customer, name: e.target.value})} style={{ padding: '12px', borderRadius: '8px', border: '1px solid var(--outline)' }} />
+                  <input type="tel" placeholder="Phone Number" required value={customer.phone} onChange={e => setCustomer({...customer, phone: e.target.value})} style={{ padding: '12px', borderRadius: '8px', border: '1px solid var(--outline)' }} />
+                  <textarea placeholder="Delivery Address" required value={customer.address} onChange={e => setCustomer({...customer, address: e.target.value})} style={{ padding: '12px', borderRadius: '8px', border: '1px solid var(--outline)', minHeight: '80px' }} />
+                  
+                  <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
+                    <button type="button" className="btn btn-outline" onClick={() => setShowCheckout(false)} style={{ flex: 1 }}>Cancel</button>
+                    <button type="submit" className="btn btn-primary" style={{ flex: 1 }} disabled={loading}>
+                      {loading ? 'Placing Order...' : 'Confirm Order'}
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <>
+                  <button
+                    className="btn btn-buy-now checkout-btn"
+                    onClick={() => setShowCheckout(true)}
+                    id="checkout-btn"
+                  >
+                    Proceed to Checkout
+                  </button>
+                  <p className="checkout-note">
+                    Secure online payment powered by Razorpay
+                  </p>
+                </>
               )}
-              {cartTotal >= 2000 && (
-                <div className="shipping-notice free-shipping">
-                  <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>local_shipping</span>
-                  You qualify for free shipping! 🎉
-                </div>
-              )}
-
-              <button
-                className="btn btn-buy-now checkout-btn"
-                onClick={handleCheckout}
-                id="checkout-whatsapp-btn"
-              >
-                <WhatsAppSVG />
-                Checkout via WhatsApp
-              </button>
-
-              <p className="checkout-note">
-                You'll be redirected to WhatsApp with a pre-filled order message. Our team will confirm availability and payment.
-              </p>
             </div>
           </div>
         )}

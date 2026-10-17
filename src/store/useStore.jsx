@@ -4,6 +4,7 @@ import React, {
   useState,
   useEffect,
   useCallback,
+  useMemo
 } from 'react';
 import { supabase } from '../lib/supabase.js';
 
@@ -23,6 +24,9 @@ export function StoreProvider({ children }) {
   const [products,       setProducts]       = useState([]);
   const [brands,         setBrands]         = useState([]);
   const [availableSizes, setAvailableSizes] = useState([]);
+  const [batches,        setBatches]        = useState([]);
+  const [onlineOrders,   setOnlineOrders]   = useState([]);
+  const [storeSettings,  setStoreSettings]  = useState(null);
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState(null);
   const [cart,     setCart]     = useState(loadCart);
@@ -35,21 +39,23 @@ export function StoreProvider({ children }) {
     setLoading(true);
     setError(null);
     try {
-      const [{ data: prods, error: e1 }, { data: brnds, error: e2 }, { data: sizesData, error: e3 }] =
+      const [{ data: prods, error: e1 }, { data: batchesData, error: e2 }, { data: settingsData, error: e3 }] =
         await Promise.all([
           supabase
             .from('products')
-            .select('*, brand:brands(id, name, slug)')
+            .select('*')
+            .neq('is_active', false)
             .order('created_at', { ascending: false }),
-          supabase.from('brands').select('*').order('name'),
-          supabase.from('sizes').select('*').order('created_at'),
+          supabase.from('batches').select('*'),
+          supabase.from('store_settings').select('*').limit(1).maybeSingle(),
         ]);
       if (e1) throw e1;
       if (e2) throw e2;
-      if (e3) throw e3;
+      if (e3) console.warn("Failed to load store settings", e3);
+      
       setProducts(prods || []);
-      setBrands(brnds || []);
-      setAvailableSizes(sizesData ? sizesData.map(s => s.name) : []);
+      setBatches(batchesData || []);
+      setStoreSettings(settingsData || { delivery_charge: 0, free_delivery_threshold: 0 });
     } catch (err) {
       console.error('Supabase fetch error:', err);
       setError(err?.message || 'Failed to load data.');
@@ -65,7 +71,7 @@ export function StoreProvider({ children }) {
     const { data: newProd, error } = await supabase
       .from('products')
       .insert([data])
-      .select('*, brand:brands(id, name, slug)')
+      .select('*')
       .single();
     if (error) throw error;
     setProducts((prev) => [newProd, ...prev]);
@@ -74,12 +80,12 @@ export function StoreProvider({ children }) {
 
   const updateProduct = useCallback(async (id, updates) => {
     // Strip non-column fields before sending to Supabase
-    const { brand, created_at, click_count, ...safeUpdates } = updates;
+    const { created_at, click_count, ...safeUpdates } = updates;
     const { data: updated, error } = await supabase
       .from('products')
       .update(safeUpdates)
       .eq('id', id)
-      .select('*, brand:brands(id, name, slug)')
+      .select('*')
       .single();
     if (error) throw error;
     setProducts((prev) => prev.map((p) => (p.id === id ? updated : p)));
@@ -87,10 +93,25 @@ export function StoreProvider({ children }) {
   }, []);
 
   const deleteProduct = useCallback(async (id) => {
-    const { error } = await supabase.from('products').delete().eq('id', id);
-    if (error) throw error;
-    setProducts((prev) => prev.filter((p) => p.id !== id));
-    setCart((prev) => prev.filter((i) => i.productId !== id));
+    try {
+      const { error } = await supabase.from('products').delete().eq('id', id);
+      if (error) {
+        if (error.code === '23503') {
+          // Foreign key violation (billed items exist). Perform soft delete instead.
+          const { error: softErr } = await supabase.from('products').update({ is_active: false }).eq('id', id);
+          if (softErr) throw new Error("Failed to soft-delete product. Please run the SQL migration to add 'is_active' column.");
+          setProducts((prev) => prev.filter((p) => p.id !== id));
+          setCart((prev) => prev.filter((i) => i.productId !== id));
+          return;
+        }
+        throw error;
+      }
+      setProducts((prev) => prev.filter((p) => p.id !== id));
+      setCart((prev) => prev.filter((i) => i.productId !== id));
+    } catch(err) {
+      alert(err.message);
+      throw err;
+    }
   }, []);
 
   const incrementClick = useCallback(async (id) => {
@@ -159,7 +180,8 @@ export function StoreProvider({ children }) {
   // ── Cart (localStorage only) ──────────────────────────────────────────────
   const addToCart = useCallback((product, size, qty = 1) => {
     setCart((prev) => {
-      const key = product.id + '||' + size;
+      const resolvedSize = size || product.size || '';
+      const key = product.id + '||' + resolvedSize;
       const existing = prev.find((i) => i.key === key);
       if (existing) {
         return prev.map((i) =>
@@ -173,10 +195,11 @@ export function StoreProvider({ children }) {
           productId: product.id,
           name:      product.name,
           brand_id:  product.brand_id,
-          image:     product.image,
           price:     product.price,
-          size,
+          size:      resolvedSize,
+          image:     product.image,
           qty,
+          colour:    product.colour || ''
         },
       ];
     });
@@ -189,27 +212,193 @@ export function StoreProvider({ children }) {
   // ── Derived helpers ───────────────────────────────────────────────────────
   const cartCount  = cart.reduce((s, i) => s + i.qty, 0);
   const cartTotal  = cart.reduce((s, i) => s + i.price * i.qty, 0);
+
+  // ── Online Orders ──────────────────────────────────────────────────────────
+  const fetchOnlineOrders = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('online_orders')
+        .select('*, items:online_order_items(*, product:products(*))')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      setOnlineOrders(data || []);
+    } catch (err) {
+      console.error('Fetch online orders error:', err);
+    }
+  }, []);
+
+  const placeOnlineOrder = useCallback(async (customerDetails) => {
+    if (cart.length === 0) throw new Error("Cart is empty");
+    
+    // Calculate delivery fee
+    const deliveryFee = storeSettings && cartTotal < (storeSettings.free_delivery_threshold || 0) 
+      ? (storeSettings.delivery_charge || 0) 
+      : 0;
+    const finalTotal = cartTotal + deliveryFee;
+
+    // Create order record
+    const orderNo = `ORD-${Date.now()}`;
+    const { data: newOrder, error: orderErr } = await supabase
+      .from('online_orders')
+      .insert([{
+        order_no: orderNo,
+        customer_name: customerDetails.name,
+        customer_phone: customerDetails.phone,
+        customer_address: customerDetails.address,
+        total: finalTotal
+      }])
+      .select()
+      .single();
+      
+    if (orderErr) throw orderErr;
+    
+    // Create order items
+    const orderItems = cart.map(item => ({
+      order_id: newOrder.id,
+      product_id: item.productId,
+      size: item.size,
+      quantity: item.qty,
+      price: item.price
+    }));
+    
+    const { error: itemsErr } = await supabase.from('online_order_items').insert(orderItems);
+    if (itemsErr) throw itemsErr;
+    
+    setCart([]); // Clear cart on success
+    return newOrder;
+  }, [cart, cartTotal, storeSettings]);
+
+  const acceptOrder = useCallback(async (orderId) => {
+    const { error } = await supabase.rpc('accept_online_order', { p_order_id: orderId });
+    if (error) throw error;
+    await fetchOnlineOrders(); // refresh
+    await fetchData(); // refresh batches and products
+  }, [fetchOnlineOrders, fetchData]);
+
+  const rejectOrder = useCallback(async (orderId) => {
+    const { error } = await supabase.from('online_orders').update({ status: 'rejected' }).eq('id', orderId);
+    if (error) throw error;
+    await fetchOnlineOrders();
+  }, [fetchOnlineOrders]);
+
+  const cancelOnlineOrder = useCallback(async (orderId) => {
+    const { error } = await supabase.rpc('cancel_online_order', { p_order_id: orderId });
+    if (error) throw error;
+    await fetchOnlineOrders(); // refresh
+    await fetchData(); // refresh batches and products
+  }, [fetchOnlineOrders, fetchData]);
+
+  const updateStoreSettings = useCallback(async (updates) => {
+    if (storeSettings?.id) {
+      const { error } = await supabase.from('store_settings').update(updates).eq('id', storeSettings.id);
+      if (error) throw error;
+      setStoreSettings(prev => ({ ...prev, ...updates }));
+    } else {
+      const { data, error } = await supabase.from('store_settings').insert([updates]).select().single();
+      if (error) throw error;
+      setStoreSettings(data);
+    }
+  }, [storeSettings]);
+
   const getBrand   = useCallback((id) => brands.find((b) => b.id === id), [brands]);
   const getProduct = useCallback((id) => products.find((p) => p.id === id), [products]);
   const getProductsByBrand = useCallback(
     (brandId) => (brandId === 'all' ? products : products.filter((p) => p.brand_id === brandId)),
     [products]
   );
+
+  const virtualProducts = useMemo(() => {
+    const groups = {};
+    products.forEach(p => {
+      const isLegacy = !p.brand && !p.model;
+      const brandVal = (p.brand || (p.name ? p.name.split('-')[0]?.trim() : '') || 'Unknown').trim();
+      const modelVal = (p.model || (p.name ? p.name.split('-')[1]?.trim() : '') || p.name || '').trim();
+      const catVal = (p.category || (p.name ? p.name.split('-')[2]?.trim() : '') || '').trim().toUpperCase();
+      const key = isLegacy ? `legacy_${p.name}` : `new_${brandVal}_${modelVal}`;
+      
+      if (!groups[key]) {
+        groups[key] = {
+          id: p.id, // ID of first variant for routing
+          isLegacy,
+          name: isLegacy ? p.name : `${brandVal} - ${modelVal}`,
+          brand_id: p.brand_id,
+          brand: brandVal,
+          model: modelVal,
+          category: catVal,
+          categories: new Set(catVal ? [catVal] : []),
+          price: p.price,
+          image: p.image,
+          variants: [],
+          sizes: new Set(),
+          colors: new Set(),
+          total_stock: 0,
+          click_count: 0
+        };
+      }
+      
+      const v = groups[key];
+      v.variants.push(p);
+      if (catVal) v.categories.add(catVal);
+      if (p.image && !v.image) v.image = p.image;
+      v.click_count += (p.click_count || 0);
+      
+      const activeBatches = batches.filter(b => b.product_id === p.id && b.quantity > 0);
+      const variantStock = activeBatches.reduce((sum, b) => sum + (b.quantity || 0), 0);
+      
+      // Determine the minimum selling price across available batches
+      const batchPrices = activeBatches.map(b => b.selling_price).filter(sp => sp != null);
+      if (batchPrices.length > 0) {
+        const minBatchPrice = Math.min(...batchPrices);
+        // Set to min batch price if we haven't set one yet, or if it's lower than what's currently set
+        if (v.price === 0 || minBatchPrice < v.price) {
+          v.price = minBatchPrice;
+        }
+      } else if (v.price === 0 && p.price > 0) {
+        // Fallback to product.price if no batches are available (for legacy products or zero-stock products)
+        v.price = p.price;
+      }
+
+      if (isLegacy && variantStock === 0 && p.in_stock) {
+        v.total_stock += 999;
+      } else {
+        v.total_stock += variantStock;
+      }
+      
+      if (isLegacy) {
+        if (p.sizes && Array.isArray(p.sizes)) {
+          p.sizes.forEach(s => v.sizes.add(s));
+        }
+      } else {
+        if (p.size) v.sizes.add(p.size);
+        if (p.colour) v.colors.add(p.colour);
+      }
+      
+      v.click_count = Math.max(v.click_count, p.click_count || 0);
+    });
+
+    return Object.values(groups).map(g => ({
+      ...g,
+      sizes: Array.from(g.sizes),
+      colors: Array.from(g.colors),
+      categories: Array.from(g.categories)
+    }));
+  }, [products, batches]);
+
   /** Top N products sorted by click_count descending */
   const getTopProducts = useCallback(
     (limit = 8) =>
-      [...products]
+      [...virtualProducts]
         .sort((a, b) => (b.click_count || 0) - (a.click_count || 0))
         .slice(0, limit),
-    [products]
+    [virtualProducts]
   );
 
-  // ── Context value ─────────────────────────────────────────────────────────
+  // ── Context value ──────────────────────────────────────────────────────────
   const value = {
-    products, brands, availableSizes, cart, cartCount, cartTotal, loading, error,
-    fetchData,
+    products, virtualProducts, brands, availableSizes, cart, cartCount, cartTotal, loading, error, batches, onlineOrders, storeSettings,
+    fetchData, fetchOnlineOrders, placeOnlineOrder, acceptOrder, rejectOrder, cancelOnlineOrder,
     addProduct, updateProduct, deleteProduct, incrementClick,
-    addBrand, updateBrand, deleteBrand, addSize,
+    addBrand, updateBrand, deleteBrand, addSize, updateStoreSettings,
     addToCart, removeFromCart, updateCartQty, clearCart,
     getBrand, getProduct, getProductsByBrand, getTopProducts,
   };

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-// ── Hash-based router ─────────────────────────────────────────────────────────
+// ── Hash-based router ─────────────────────────────────────────────────────────────
 // Routes:
 //   #/           → home
 //   #/shop       → shop (all brands)
@@ -9,7 +9,9 @@ import { useState, useEffect } from 'react';
 //   #/admin      → admin panel
 
 export function parseHash(hash) {
-  const path = (hash || '#/').replace(/^#/, '') || '/';
+  // Strip query parameters for routing logic
+  const hashWithoutQuery = (hash || '#/').split('?')[0];
+  const path = hashWithoutQuery.replace(/^#/, '') || '/';
   const segments = path.split('/').filter(Boolean);
 
   if (segments.length === 0) return { route: 'home' };
@@ -20,6 +22,13 @@ export function parseHash(hash) {
   if (segments[0] === 'shop') return { route: 'shop' };
   if (segments[0] === 'cart')  return { route: 'cart' };
   if (segments[0] === 'admin') return { route: 'admin' };
+  if (segments[0] === 'pos') {
+    if (segments[1] === 'settings') return { route: 'pos-settings' };
+    if (segments[1] === 'returns') return { route: 'pos-returns' };
+    if (segments[1] === 'analytics') return { route: 'pos-analytics' };
+    if (segments[1] === 'batches') return { route: 'pos-batches' };
+    return { route: 'pos' };
+  }
 
   return { route: 'home' };
 }

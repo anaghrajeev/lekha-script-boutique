@@ -5,12 +5,20 @@ import Hero from './components/sections/Hero';
 import BrandMarquee from './components/sections/BrandMarquee';
 import ProductCatalog from './components/sections/ProductCatalog';
 import AboutSection from './components/sections/AboutSection';
-import ShopPage from './pages/ShopPage';
-import ProductPage from './pages/ProductPage';
-import CartPage from './pages/CartPage';
-import AdminPanel from './pages/AdminPanel';
-import AdminLogin from './pages/AdminLogin';
+import { Toaster } from 'react-hot-toast';
+
+const ShopPage = React.lazy(() => import('./pages/ShopPage'));
+const ProductPage = React.lazy(() => import('./pages/ProductPage'));
+const CartPage = React.lazy(() => import('./pages/CartPage'));
+const AdminPanel = React.lazy(() => import('./pages/AdminPanel'));
+const AdminLogin = React.lazy(() => import('./pages/AdminLogin'));
+const PosBillingPage = React.lazy(() => import('./pages/pos/PosBillingPage'));
+const PosBatchesPage = React.lazy(() => import('./pages/pos/PosBatchesPage'));
+const PosReturnsPage = React.lazy(() => import('./pages/pos/PosReturnsPage'));
+const PosAnalyticsPage = React.lazy(() => import('./pages/pos/PosAnalyticsPage'));
+const PosSettingsPage = React.lazy(() => import('./pages/pos/PosSettingsPage'));
 import { StoreProvider } from './store/useStore.jsx';
+import { PosStoreProvider } from './store/usePosStore.jsx';
 import { useAuth } from './store/useAuth.js';
 import { useRouter } from './router.jsx';
 import './index.css';
@@ -33,14 +41,19 @@ const HomePage = () => (
 // Inner app that has access to both router and auth
 function AppInner() {
   const location = useRouter();
-  const { isLoggedIn, login, logout } = useAuth();
-  const isAdmin = location.route === 'admin';
+  const { isLoggedIn, login, logout, loading } = useAuth();
+  const isPos = location.route.startsWith('pos');
+  const isAdminOrPos = location.route === 'admin' || isPos;
 
   React.useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [location.route, location.id]);
 
   const renderPage = () => {
+    if (isAdminOrPos && loading) {
+      return <div style={{ display: 'flex', justifyContent: 'center', padding: '100px 0' }}><div className="loading-spinner"></div></div>;
+    }
+    
     switch (location.route) {
       case 'home':    return <HomePage />;
       case 'shop':    return <ShopPage />;
@@ -50,16 +63,28 @@ function AppInner() {
         return isLoggedIn
           ? <AdminPanel onLogout={logout} />
           : <AdminLogin onLogin={login} />;
+      case 'pos':
+        return isLoggedIn ? <PosBillingPage onLogout={logout} /> : <AdminLogin onLogin={login} />;
+      case 'pos-batches':
+        return isLoggedIn ? <PosBatchesPage onLogout={logout} /> : <AdminLogin onLogin={login} />;
+      case 'pos-returns':
+        return isLoggedIn ? <PosReturnsPage onLogout={logout} /> : <AdminLogin onLogin={login} />;
+      case 'pos-analytics':
+        return isLoggedIn ? <PosAnalyticsPage onLogout={logout} /> : <AdminLogin onLogin={login} />;
+      case 'pos-settings':
+        return isLoggedIn ? <PosSettingsPage onLogout={logout} /> : <AdminLogin onLogin={login} />;
       default:        return <HomePage />;
     }
   };
 
   return (
     <>
-      <Navbar currentRoute={location.route} />
-      {renderPage()}
-      {!isAdmin && <Footer />}
-      {!isAdmin && (
+      {!isAdminOrPos && <Navbar currentRoute={location.route} />}
+      <React.Suspense fallback={<div style={{ display: 'flex', justifyContent: 'center', padding: '100px 0' }}><div className="loading-spinner"></div></div>}>
+        {renderPage()}
+      </React.Suspense>
+      {!isAdminOrPos && <Footer />}
+      {!isAdminOrPos && (
         <a
           href="https://wa.me/919745298723"
           target="_blank"
@@ -77,7 +102,10 @@ function AppInner() {
 function App() {
   return (
     <StoreProvider>
-      <AppInner />
+      <PosStoreProvider>
+        <Toaster position="top-right" toastOptions={{ style: { background: 'var(--surface)', color: 'var(--on-surface)', border: '1px solid var(--outline-variant)' } }} />
+        <AppInner />
+      </PosStoreProvider>
     </StoreProvider>
   );
 }

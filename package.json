@@ -12,8 +12,11 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.110.2",
     "cheerio": "^1.2.0",
+    "framer-motion": "^13.4.0",
     "react": "^19.2.6",
-    "react-dom": "^19.2.6"
+    "react-dom": "^19.2.6",
+    "react-hot-toast": "^2.6.1",
+    "react-lazy-load-image-component": "^1.6.3"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

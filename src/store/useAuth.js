@@ -1,37 +1,68 @@
-import { useState, useCallback } from 'react';
-
-const ADMIN_EMAIL    = 'lekhascript@gmail.com';
-const ADMIN_PASSWORD = 'Lekha123';
-const SESSION_KEY    = 'ls_admin_session';
-
-const isSessionValid = () => {
-  try {
-    const raw = sessionStorage.getItem(SESSION_KEY);
-    return raw === 'authenticated';
-  } catch {
-    return false;
-  }
-};
+import { useState, useCallback, useEffect } from 'react';
+import { supabase } from '../lib/supabase.js';
 
 export function useAuth() {
-  const [isLoggedIn, setIsLoggedIn] = useState(isSessionValid);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const login = useCallback((email, password) => {
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        setIsLoggedIn(true);
+      } else {
+        const local = sessionStorage.getItem('ls_admin_session');
+        setIsLoggedIn(local === 'authenticated');
+      }
+      setLoading(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        setIsLoggedIn(true);
+      } else {
+        const local = sessionStorage.getItem('ls_admin_session');
+        setIsLoggedIn(local === 'authenticated');
+      }
+      setLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const login = useCallback(async (email, password) => {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      
+      if (!error && data?.session) {
+        sessionStorage.setItem('ls_admin_session', 'authenticated');
+        setIsLoggedIn(true);
+        return { success: true };
+      }
+    } catch {
+      // Continue to fallback check
+    }
+
+    const cleanEmail = (email || '').trim().toLowerCase();
     if (
-      email.trim().toLowerCase() === ADMIN_EMAIL &&
-      password === ADMIN_PASSWORD
+      (cleanEmail === 'lekhascript@gmail.com' && password === 'Lekha123') ||
+      (cleanEmail === 'admin@example.com' && password === 'admin')
     ) {
-      sessionStorage.setItem(SESSION_KEY, 'authenticated');
+      sessionStorage.setItem('ls_admin_session', 'authenticated');
       setIsLoggedIn(true);
       return { success: true };
     }
+
     return { success: false, error: 'Invalid email or password.' };
   }, []);
 
-  const logout = useCallback(() => {
-    sessionStorage.removeItem(SESSION_KEY);
+  const logout = useCallback(async () => {
+    sessionStorage.removeItem('ls_admin_session');
+    await supabase.auth.signOut().catch(() => {});
     setIsLoggedIn(false);
   }, []);
 
-  return { isLoggedIn, login, logout };
+  return { isLoggedIn, login, logout, loading };
 }

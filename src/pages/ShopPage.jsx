@@ -1,6 +1,9 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useStore } from '../store/useStore.jsx';
 import { navigate } from '../router.jsx';
+import { LazyLoadImage } from 'react-lazy-load-image-component';
+import 'react-lazy-load-image-component/src/effects/blur.css';
+import { motion } from 'framer-motion';
 
 const WhatsAppSVG = () => (
   <svg style={{ width: '18px', height: '18px', fill: 'currentColor' }} viewBox="0 0 24 24">
@@ -32,15 +35,19 @@ function SkeletonCard() {
 }
 
 function ShopProductCard({ product, brand, onAddToCart }) {
-  const defaultSize =
-    product.size_type === 'standard' && product.sizes?.length > 0
-      ? product.sizes[0]
-      : product.size_type === 'custom'
-      ? 'Free Size'
-      : 'One Size';
+  const hasVariants = product.variants?.length > 1 || product.sizes?.length > 0 || product.colors?.length > 0;
+  const isOutOfStock = product.total_stock <= 0;
 
   return (
-    <div className="shop-product-card" id={`shop-card-${product.id}`}>
+    <motion.div 
+      className="shop-product-card" 
+      id={`shop-card-${product.id}`}
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-50px" }}
+      transition={{ duration: 0.4 }}
+      whileHover={{ y: -4, boxShadow: '0 12px 24px rgba(0,0,0,0.08)' }}
+    >
       <div
         className="shop-card-image"
         onClick={() => navigate(`#/shop/${product.id}`)}
@@ -50,63 +57,205 @@ function ShopProductCard({ product, brand, onAddToCart }) {
         aria-label={`View ${product.name}`}
       >
         {product.image ? (
-          <img src={product.image} alt={product.name} loading="lazy" />
+          <LazyLoadImage 
+            src={product.image} 
+            alt={product.name} 
+            effect="blur"
+            wrapperProps={{ style: { display: 'block', width: '100%', height: '100%' } }}
+          />
         ) : (
-          <div className="shop-card-placeholder">
-            <span className="material-symbols-outlined">checkroom</span>
+          <div
+            className="shop-card-placeholder"
+            style={{ 
+              background: 'linear-gradient(135deg, var(--surface-container), var(--surface-container-high))',
+              display: 'flex', alignItems: 'center', justifyContent: 'center'
+            }}
+          >
+            <span
+              className="material-symbols-outlined"
+              style={{ fontSize: '48px', color: 'rgba(122,53,128,0.3)' }}
+            >
+              laundry
+            </span>
           </div>
         )}
         <div className="shop-card-overlay">
           <span className="view-details-pill">View Details</span>
         </div>
-        {!product.in_stock && (
+        {isOutOfStock && (
           <div className="shop-card-badge out-of-stock-badge">Out of Stock</div>
         )}
       </div>
 
-      <div className="shop-card-info">
-        <div className="shop-card-text">
-          {brand && <span className="brand-chip">{brand.name}</span>}
-          <h3 className="shop-card-name" onClick={() => navigate(`#/shop/${product.id}`)}>
-            {product.name}
+      <div className="shop-card-info" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div className="shop-card-text" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          {brand && brand.name && brand.name !== '-' && (
+            <div><span className="brand-chip">{brand.name}</span></div>
+          )}
+          <h3 className="shop-card-name" onClick={() => navigate(`#/shop/${product.id}`)} style={{ fontSize: '15px', lineHeight: '1.4', wordBreak: 'break-word', margin: 0 }}>
+            {product.name ? product.name.split('-').map(p => p.trim().charAt(0).toUpperCase() + p.trim().slice(1).toLowerCase()).join(' ') : ''}
           </h3>
-          <p className="shop-card-price">₹{Number(product.price).toLocaleString()}</p>
+          <p className="shop-card-price" style={{ fontWeight: '600', margin: 0 }}>
+            ₹{Number(product.price).toLocaleString()}
+          </p>
         </div>
-        <div className="shop-card-actions">
-          <button
-            className="btn btn-outline shop-view-btn"
-            onClick={() => navigate(`#/shop/${product.id}`)}
-          >
-            View
-          </button>
-          <button
-            className="btn btn-add-cart"
-            onClick={() => onAddToCart(product, defaultSize)}
-            disabled={!product.in_stock}
-            aria-label={`Add ${product.name} to cart`}
-          >
-            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>shopping_bag</span>
-          </button>
+        <div className="shop-card-actions" style={{ display: 'flex', width: '100%' }}>
+          {hasVariants ? (
+            <button
+              className="btn btn-primary"
+              onClick={() => navigate(`#/shop/${product.id}`)}
+              style={{ width: '100%', padding: '8px 4px', justifyContent: 'center', fontSize: '12px', minWidth: 0, whiteSpace: 'nowrap' }}
+            >
+              Select Options
+            </button>
+          ) : (
+            <button
+              className="btn btn-add-cart"
+              onClick={() => onAddToCart(product.variants[0])}
+              disabled={isOutOfStock}
+              aria-label={`Add ${product.name} to cart`}
+              style={{ width: '100%', justifyContent: 'center', padding: '8px 4px', fontSize: '12px', minWidth: 0, borderRadius: '9999px', whiteSpace: 'nowrap' }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '14px', marginRight: '4px' }}>shopping_bag</span>
+              Add to Cart
+            </button>
+          )}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
 export default function ShopPage() {
-  const { products, brands, getBrand, addToCart, loading } = useStore();
+  const { virtualProducts, addToCart, loading } = useStore();
+  const [searchQuery, setSearchQuery] = useState('');
   const [activeBrand, setActiveBrand] = useState('all');
+  const [activeCategory, setActiveCategory] = useState('all');
+  const [sortBy, setSortBy] = useState('featured');
   const [toast, setToast] = useState({ visible: false, message: '' });
 
-  const filteredProducts =
-    activeBrand === 'all'
-      ? products
-      : products.filter((p) => p.brand_id === activeBrand);
+  // Extract unique brands
+  const uniqueBrands = useMemo(() => {
+    return [...new Set(virtualProducts.map(p => p.brand).filter(Boolean))].sort();
+  }, [virtualProducts]);
+
+  // Extract unique categories
+  const uniqueCategories = useMemo(() => {
+    const cats = new Set();
+    virtualProducts.forEach(p => {
+      if (p.category) cats.add(p.category);
+      if (Array.isArray(p.categories)) {
+        p.categories.forEach(c => cats.add(c));
+      }
+    });
+    return [...cats].sort();
+  }, [virtualProducts]);
+
+  // Dynamic count helpers
+  const getBrandCount = useCallback((brandName) => {
+    return virtualProducts.filter(p => {
+      if (p.brand !== brandName) return false;
+      if (activeCategory !== 'all') {
+        const catMatch = (p.category && p.category.toLowerCase() === activeCategory.toLowerCase()) ||
+          (Array.isArray(p.categories) && p.categories.some(c => c.toLowerCase() === activeCategory.toLowerCase()));
+        if (!catMatch) return false;
+      }
+      return true;
+    }).length;
+  }, [virtualProducts, activeCategory]);
+
+  const getCategoryCount = useCallback((catName) => {
+    return virtualProducts.filter(p => {
+      const catMatch = (p.category && p.category.toLowerCase() === catName.toLowerCase()) ||
+        (Array.isArray(p.categories) && p.categories.some(c => c.toLowerCase() === catName.toLowerCase()));
+      if (!catMatch) return false;
+      if (activeBrand !== 'all') {
+        if (!p.brand || p.brand.toLowerCase() !== activeBrand.toLowerCase()) return false;
+      }
+      return true;
+    }).length;
+  }, [virtualProducts, activeBrand]);
+
+  // Top popular categories that wrap cleanly (no horizontal sliding required)
+  const popularCategories = useMemo(() => {
+    return [...uniqueCategories]
+      .sort((a, b) => getCategoryCount(b) - getCategoryCount(a))
+      .slice(0, 7);
+  }, [uniqueCategories, getCategoryCount]);
+
+  // Comprehensive filter logic combining Search, Category, Brand, and Sort
+  const filteredProducts = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+
+    const list = virtualProducts.filter(p => {
+      // 1. Brand filter
+      if (activeBrand !== 'all') {
+        if (!p.brand || p.brand.toLowerCase() !== activeBrand.toLowerCase()) {
+          return false;
+        }
+      }
+
+      // 2. Category filter
+      if (activeCategory !== 'all') {
+        const catMatch = (p.category && p.category.toLowerCase() === activeCategory.toLowerCase()) ||
+          (Array.isArray(p.categories) && p.categories.some(c => c.toLowerCase() === activeCategory.toLowerCase()));
+        if (!catMatch) {
+          return false;
+        }
+      }
+
+      // 3. Search query filter
+      if (query) {
+        const nameMatch = p.name && p.name.toLowerCase().includes(query);
+        const brandMatch = p.brand && p.brand.toLowerCase().includes(query);
+        const modelMatch = p.model && p.model.toLowerCase().includes(query);
+        const categoryMatch = (p.category && p.category.toLowerCase().includes(query)) ||
+          (Array.isArray(p.categories) && p.categories.some(c => c.toLowerCase().includes(query)));
+        const sizeMatch = Array.isArray(p.sizes) && p.sizes.some(s => String(s).toLowerCase().includes(query));
+        const colorMatch = Array.isArray(p.colors) && p.colors.some(c => String(c).toLowerCase().includes(query));
+        const variantMatch = Array.isArray(p.variants) && p.variants.some(v => 
+          (v.name && v.name.toLowerCase().includes(query)) ||
+          (v.size && String(v.size).toLowerCase().includes(query)) ||
+          (v.colour && String(v.colour).toLowerCase().includes(query)) ||
+          (v.barcode && String(v.barcode).toLowerCase().includes(query))
+        );
+
+        if (!nameMatch && !brandMatch && !modelMatch && !categoryMatch && !sizeMatch && !colorMatch && !variantMatch) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+
+    // Sorting
+    if (sortBy === 'price-asc') {
+      list.sort((a, b) => (Number(a.price) || 0) - (Number(b.price) || 0));
+    } else if (sortBy === 'price-desc') {
+      list.sort((a, b) => (Number(b.price) || 0) - (Number(a.price) || 0));
+    } else if (sortBy === 'name-asc') {
+      list.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    } else {
+      // featured
+      list.sort((a, b) => (b.click_count || 0) - (a.click_count || 0));
+    }
+
+    return list;
+  }, [virtualProducts, searchQuery, activeBrand, activeCategory, sortBy]);
+
+  const hasActiveFilters = searchQuery.trim() !== '' || activeBrand !== 'all' || activeCategory !== 'all' || sortBy !== 'featured';
+
+  const resetAllFilters = useCallback(() => {
+    setSearchQuery('');
+    setActiveBrand('all');
+    setActiveCategory('all');
+    setSortBy('featured');
+  }, []);
 
   const handleAddToCart = useCallback(
-    (product, size) => {
-      addToCart(product, size);
-      setToast({ visible: true, message: `${product.name} added to cart!` });
+    (variant) => {
+      addToCart(variant);
+      setToast({ visible: true, message: `${variant.name} added to cart!` });
       setTimeout(() => setToast({ visible: false, message: '' }), 2500);
     },
     [addToCart]
@@ -131,33 +280,187 @@ export default function ShopPage() {
         </div>
       </div>
 
-      {/* Brand filter tabs */}
+      {/* Search & Filter Controls Bar */}
       <div className="shop-filters-bar">
         <div className="container">
-          <div className="shop-filters">
-            <button
-              className={`brand-tab ${activeBrand === 'all' ? 'active' : ''}`}
-              onClick={() => setActiveBrand('all')}
-              id="brand-tab-all"
-            >
-              All
-              <span className="brand-tab-count">{products.length}</span>
-            </button>
-            {brands.map((brand) => {
-              const count = products.filter((p) => p.brand_id === brand.id).length;
-              if (count === 0) return null;
-              return (
+          <div className="shop-controls-bar">
+            {/* Main Controls: Search Box + Dropdown Selectors */}
+            <div className="shop-main-controls">
+              {/* Search Box */}
+              <div className="shop-search-box">
+                <span className="material-symbols-outlined shop-search-icon">search</span>
+                <input
+                  type="text"
+                  id="shop-search-input"
+                  className="shop-search-input"
+                  placeholder="Search products by brand, category, model, size..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  aria-label="Search online boutique products"
+                />
+                {searchQuery && (
+                  <button
+                    className="shop-search-clear"
+                    onClick={() => setSearchQuery('')}
+                    title="Clear search"
+                    aria-label="Clear search"
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>close</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Dropdowns Group */}
+              <div className="shop-dropdowns-group">
+                {/* Category Dropdown */}
+                <div className={`shop-dropdown-control ${activeCategory !== 'all' ? 'has-selection' : ''}`}>
+                  <span className="material-symbols-outlined dropdown-icon">category</span>
+                  <select
+                    id="shop-category-select"
+                    className="shop-custom-select"
+                    value={activeCategory}
+                    onChange={(e) => setActiveCategory(e.target.value)}
+                    aria-label="Filter by category"
+                  >
+                    <option value="all">
+                      All Categories ({activeBrand === 'all' ? virtualProducts.length : virtualProducts.filter(p => p.brand?.toLowerCase() === activeBrand.toLowerCase()).length})
+                    </option>
+                    {uniqueCategories.map((catName) => {
+                      const count = getCategoryCount(catName);
+                      return (
+                        <option key={catName} value={catName}>
+                          {catName} ({count})
+                        </option>
+                      );
+                    })}
+                  </select>
+                  <span className="material-symbols-outlined dropdown-caret">expand_more</span>
+                </div>
+
+                {/* Brand Dropdown */}
+                <div className={`shop-dropdown-control ${activeBrand !== 'all' ? 'has-selection' : ''}`}>
+                  <span className="material-symbols-outlined dropdown-icon">sell</span>
+                  <select
+                    id="shop-brand-select"
+                    className="shop-custom-select"
+                    value={activeBrand}
+                    onChange={(e) => setActiveBrand(e.target.value)}
+                    aria-label="Filter by brand"
+                  >
+                    <option value="all">
+                      All Brands ({activeCategory === 'all' ? virtualProducts.length : virtualProducts.filter(p => (p.category && p.category.toLowerCase() === activeCategory.toLowerCase()) || (Array.isArray(p.categories) && p.categories.some(c => c.toLowerCase() === activeCategory.toLowerCase()))).length})
+                    </option>
+                    {uniqueBrands.map((brandName) => {
+                      const count = getBrandCount(brandName);
+                      return (
+                        <option key={brandName} value={brandName}>
+                          {brandName} ({count})
+                        </option>
+                      );
+                    })}
+                  </select>
+                  <span className="material-symbols-outlined dropdown-caret">expand_more</span>
+                </div>
+
+                {/* Sort Dropdown */}
+                <div className={`shop-dropdown-control ${sortBy !== 'featured' ? 'has-selection' : ''}`}>
+                  <span className="material-symbols-outlined dropdown-icon">swap_vert</span>
+                  <select
+                    id="shop-sort-select"
+                    className="shop-custom-select"
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                    aria-label="Sort products"
+                  >
+                    <option value="featured">Sort: Featured</option>
+                    <option value="price-asc">Price: Low to High</option>
+                    <option value="price-desc">Price: High to Low</option>
+                    <option value="name-asc">Name: A to Z</option>
+                  </select>
+                  <span className="material-symbols-outlined dropdown-caret">expand_more</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Popular Categories (wraps cleanly, no sliding required!) */}
+            <div className="shop-quick-tags-row">
+              <span className="quick-tags-label">Popular:</span>
+              <div className="quick-tags-wrap">
                 <button
-                  key={brand.id}
-                  className={`brand-tab ${activeBrand === brand.id ? 'active' : ''}`}
-                  onClick={() => setActiveBrand(brand.id)}
-                  id={`brand-tab-${brand.id}`}
+                  className={`quick-tag-chip ${activeCategory === 'all' ? 'active' : ''}`}
+                  onClick={() => setActiveCategory('all')}
+                  id="quick-pill-all"
                 >
-                  {brand.name}
-                  <span className="brand-tab-count">{count}</span>
+                  All
                 </button>
-              );
-            })}
+                {popularCategories.map((cat) => {
+                  const count = getCategoryCount(cat);
+                  if (count === 0 && activeBrand !== 'all') return null;
+                  return (
+                    <button
+                      key={cat}
+                      className={`quick-tag-chip ${activeCategory === cat ? 'active' : ''}`}
+                      onClick={() => setActiveCategory(cat)}
+                      id={`quick-pill-${cat.toLowerCase().replace(/\s+/g, '-')}`}
+                    >
+                      {cat} <span className="chip-count">{count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Active Filters Summary Strip */}
+            {hasActiveFilters && (
+              <div className="shop-active-filters-bar">
+                <div className="shop-active-chips">
+                  <span style={{ color: 'var(--on-surface-variant)', fontSize: '12px', fontWeight: '500' }}>
+                    Active filters:
+                  </span>
+                  {searchQuery && (
+                    <span className="active-filter-badge">
+                      "{searchQuery}"
+                      <button onClick={() => setSearchQuery('')} aria-label="Remove search filter">
+                        <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>close</span>
+                      </button>
+                    </span>
+                  )}
+                  {activeCategory !== 'all' && (
+                    <span className="active-filter-badge">
+                      Category: {activeCategory}
+                      <button onClick={() => setActiveCategory('all')} aria-label="Remove category filter">
+                        <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>close</span>
+                      </button>
+                    </span>
+                  )}
+                  {activeBrand !== 'all' && (
+                    <span className="active-filter-badge">
+                      Brand: {activeBrand}
+                      <button onClick={() => setActiveBrand('all')} aria-label="Remove brand filter">
+                        <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>close</span>
+                      </button>
+                    </span>
+                  )}
+                  {sortBy !== 'featured' && (
+                    <span className="active-filter-badge">
+                      Sort: {sortBy === 'price-asc' ? 'Price ↑' : sortBy === 'price-desc' ? 'Price ↓' : 'A-Z'}
+                      <button onClick={() => setSortBy('featured')} aria-label="Reset sorting">
+                        <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>close</span>
+                      </button>
+                    </span>
+                  )}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <span style={{ fontSize: '12px', color: 'var(--on-surface-variant)' }}>
+                    Showing <strong>{filteredProducts.length}</strong> {filteredProducts.length === 1 ? 'product' : 'products'}
+                  </span>
+                  <button className="btn-reset-filters" onClick={resetAllFilters} id="btn-reset-filters">
+                    <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>restart_alt</span>
+                    Reset Filters
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -172,24 +475,36 @@ export default function ShopPage() {
           ) : filteredProducts.length === 0 ? (
             <div className="shop-empty">
               <span className="material-symbols-outlined shop-empty-icon">inventory_2</span>
-              <p>No products found in this category yet.</p>
-              {activeBrand !== 'all' && (
-                <button className="btn btn-outline" style={{ marginTop: '16px' }} onClick={() => setActiveBrand('all')}>
-                  View All Products
+              <p>No products match your search or filter selection.</p>
+              {hasActiveFilters && (
+                <button className="btn btn-outline" style={{ marginTop: '16px' }} onClick={resetAllFilters}>
+                  Clear All Filters ({virtualProducts.length} Products)
                 </button>
               )}
             </div>
           ) : (
-            <div className="shop-product-grid">
+            <motion.div 
+              className="shop-product-grid"
+              initial="hidden"
+              animate="visible"
+              variants={{
+                hidden: {},
+                visible: {
+                  transition: {
+                    staggerChildren: 0.1
+                  }
+                }
+              }}
+            >
               {filteredProducts.map((product) => (
                 <ShopProductCard
                   key={product.id}
                   product={product}
-                  brand={getBrand(product.brand_id)}
+                  brand={{ name: product.brand }}
                   onAddToCart={handleAddToCart}
                 />
               ))}
-            </div>
+            </motion.div>
           )}
         </div>
       </div>

@@ -2,10 +2,10 @@ import React, { useState } from 'react';
 import { navigate } from '../router.jsx';
 
 export default function AdminLogin({ onLogin }) {
-  const [email,    setEmail]    = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error,    setError]    = useState('');
-  const [loading,  setLoading]  = useState(false);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const [showPass, setShowPass] = useState(false);
 
   const handleSubmit = async (e) => {
@@ -13,7 +13,7 @@ export default function AdminLogin({ onLogin }) {
     setError('');
     setLoading(true);
     await new Promise((r) => setTimeout(r, 400)); // brief visual feedback
-    const result = onLogin(email, password);
+    const result = await onLogin(email, password);
     setLoading(false);
     if (!result.success) setError(result.error);
   };

@@ -88,16 +88,7 @@ const Navbar = ({ currentRoute }) => {
 
           {/* Actions */}
           <div className="header-actions">
-            {/* WhatsApp */}
-            <a
-              href="https://wa.me/919745298723"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Order on WhatsApp"
-              className="whatsapp-icon-btn"
-            >
-              <WhatsAppSVG />
-            </a>
+
 
             {/* Cart */}
             <button
