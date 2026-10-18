@@ -6,6 +6,14 @@ import { supabase } from '../../lib/supabase';
 import { toast } from 'react-hot-toast';
 import { printThermalReceipt } from '../../lib/printReceipt.js';
 
+const getTodayDateString = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const PosReturnsPage = ({ onLogout }) => {
   const { bills, fetchBills, fetchPosData, deleteBill, settings } = usePosStore();
   const { fetchData: fetchGlobalData } = useStore();
@@ -13,12 +21,23 @@ const PosReturnsPage = ({ onLogout }) => {
   const [selectedBill, setSelectedBill] = useState(null);
   const [returnItems, setReturnItems] = useState({});
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchDate, setSearchDate] = useState('');
+  const [searchDate, setSearchDate] = useState(() => getTodayDateString());
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const filteredBills = bills.filter(bill => {
-    const matchQuery = bill.bill_no.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchDate = searchDate ? new Date(bill.bill_date).toLocaleDateString() === new Date(searchDate).toLocaleDateString() : true;
+    const q = searchQuery.trim().toLowerCase();
+    const matchQuery = q 
+      ? bill.bill_no.toLowerCase().includes(q) ||
+        (bill.customer_name && bill.customer_name.toLowerCase().includes(q))
+      : true;
+
+    let matchDate = true;
+    if (searchDate) {
+      const billD = new Date(bill.bill_date);
+      const billDateStr = `${billD.getFullYear()}-${String(billD.getMonth() + 1).padStart(2, '0')}-${String(billD.getDate()).padStart(2, '0')}`;
+      matchDate = billDateStr === searchDate;
+    }
+
     return matchQuery && matchDate;
   });
 
@@ -104,10 +123,10 @@ const PosReturnsPage = ({ onLogout }) => {
             <h1 className="font-serif text-headline-lg">Sales & Returns</h1>
             <p className="text-body-md" style={{ color: 'var(--on-surface-variant)', marginBottom: '16px' }}>Select a bill to process returns</p>
             
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', alignItems: 'center' }}>
               <input 
                 type="text" 
-                placeholder="Search invoice..." 
+                placeholder="Search invoice or customer..." 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid var(--outline-variant)' }}
@@ -116,15 +135,48 @@ const PosReturnsPage = ({ onLogout }) => {
                 type="date" 
                 value={searchDate}
                 onChange={(e) => setSearchDate(e.target.value)}
-                style={{ padding: '10px', borderRadius: '8px', border: '1px solid var(--outline-variant)' }}
+                style={{ padding: '10px', borderRadius: '8px', border: '1px solid var(--outline-variant)', fontWeight: '500' }}
+                title="Filter by Bill Date"
               />
+              {searchDate !== getTodayDateString() && (
+                <button
+                  type="button"
+                  onClick={() => setSearchDate(getTodayDateString())}
+                  style={{
+                    padding: '9px 14px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--outline-variant)',
+                    backgroundColor: 'var(--surface-container-high)',
+                    fontSize: '13px',
+                    fontWeight: '600',
+                    color: 'var(--primary)',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap'
+                  }}
+                  title="Show Today's Bills"
+                >
+                  Today
+                </button>
+              )}
               {(searchQuery || searchDate) && (
                 <button 
                   onClick={() => { setSearchQuery(''); setSearchDate(''); }}
-                  style={{ padding: '10px', borderRadius: '8px', border: '1px solid var(--outline-variant)', backgroundColor: 'transparent' }}
-                  title="Clear filters"
+                  style={{
+                    padding: '9px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--outline-variant)',
+                    backgroundColor: 'transparent',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    fontSize: '13px',
+                    color: 'var(--on-surface-variant)'
+                  }}
+                  title="Show all historical bills (Clear filter)"
                 >
-                  <span className="material-symbols-outlined" style={{ fontSize: '18px', verticalAlign: 'middle' }}>close</span>
+                  <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>filter_alt_off</span>
+                  <span>All</span>
                 </button>
               )}
             </div>
@@ -132,8 +184,31 @@ const PosReturnsPage = ({ onLogout }) => {
           
           <div style={{ backgroundColor: 'var(--surface)', borderRadius: '12px', border: '1px solid var(--outline-variant)', overflowY: 'auto', flex: 1 }}>
             {filteredBills.length === 0 ? (
-              <div style={{ padding: '24px', textAlign: 'center', color: 'var(--on-surface-variant)' }}>
-                No bills found.
+              <div style={{ padding: '32px 24px', textAlign: 'center', color: 'var(--on-surface-variant)' }}>
+                <span className="material-symbols-outlined" style={{ fontSize: '40px', color: 'var(--outline)', marginBottom: '8px', display: 'block' }}>
+                  receipt_long
+                </span>
+                <p style={{ margin: 0, fontWeight: '500' }}>
+                  No bills found {searchDate === getTodayDateString() ? 'for today' : searchDate ? `for ${searchDate}` : ''}.
+                </p>
+                {searchDate && (
+                  <button
+                    onClick={() => setSearchDate('')}
+                    style={{
+                      marginTop: '12px',
+                      padding: '6px 14px',
+                      backgroundColor: 'transparent',
+                      border: '1px solid var(--primary)',
+                      color: 'var(--primary)',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    View All Historical Bills
+                  </button>
+                )}
               </div>
             ) : filteredBills.map(bill => (
               <div 
