@@ -49,6 +49,16 @@ function AppInner() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [location.route, location.id]);
 
+  React.useEffect(() => {
+    // When running as an installed standalone desktop app, open directly to Admin Panel
+    const isStandalone = 
+      window.matchMedia('(display-mode: standalone)').matches || 
+      window.navigator.standalone === true;
+    if (isStandalone && (!window.location.hash || window.location.hash === '#/' || window.location.hash === '#')) {
+      window.location.hash = '#/admin';
+    }
+  }, []);
+
   const renderPage = () => {
     if (isAdminOrPos && loading) {
       return <div style={{ display: 'flex', justifyContent: 'center', padding: '100px 0' }}><div className="loading-spinner"></div></div>;

@@ -1,13 +1,29 @@
 {
-  "name": "Lekha Script – Boutique & POS",
-  "short_name": "Lekha Script",
-  "description": "Lekha Script Inner Concepts – Boutique Admin & Retail POS",
-  "start_url": "/",
+  "name": "Lekha Script – Admin & POS",
+  "short_name": "Lekha Admin",
+  "description": "Lekha Script Inner Concepts – Boutique Admin & Retail POS Management",
+  "start_url": "/#/admin",
   "scope": "/",
   "display": "standalone",
   "orientation": "any",
   "background_color": "#faf7fa",
   "theme_color": "#7a3580",
+  "shortcuts": [
+    {
+      "name": "Admin Panel",
+      "short_name": "Admin",
+      "description": "Open Boutique Admin Dashboard",
+      "url": "/#/admin",
+      "icons": [{ "src": "/logo.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Retail POS Checkout",
+      "short_name": "POS",
+      "description": "Open Retail Billing & POS",
+      "url": "/#/pos",
+      "icons": [{ "src": "/logo.png", "sizes": "192x192" }]
+    }
+  ],
   "icons": [
     {
       "src": "/logo.png",

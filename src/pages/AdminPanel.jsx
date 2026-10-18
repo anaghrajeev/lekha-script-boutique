@@ -78,7 +78,7 @@ function InstallDesktopAppModal({ isOpen, onClose, onInstall, canPrompt, isStand
             <span className="material-symbols-outlined" style={{ fontSize: '32px' }}>desktop_windows</span>
           </div>
           <div>
-            <h3 style={{ margin: 0, fontSize: '20px', color: 'var(--on-surface)' }}>Install as Desktop App</h3>
+            <h3 style={{ margin: 0, fontSize: '20px', color: 'var(--on-surface)' }}>Install Admin & POS Desktop App</h3>
             <p style={{ margin: 0, fontSize: '13px', color: 'var(--on-surface-variant)' }}>Lekha Script Boutique & Retail POS</p>
           </div>
         </div>
@@ -96,7 +96,7 @@ function InstallDesktopAppModal({ isOpen, onClose, onInstall, canPrompt, isStand
         ) : (
           <>
             <p style={{ fontSize: '14px', color: 'var(--on-surface)', lineHeight: '1.6', marginBottom: '16px' }}>
-              Install Lekha Script as a dedicated standalone desktop app on your PC. It launches instantly from your Desktop or Taskbar, runs in full screen without browser toolbars, and streamlines daily store management and POS printing.
+              Install Lekha Script as a dedicated standalone desktop app on your PC. It launches directly into your Admin & POS dashboard from your Desktop or Taskbar without browser toolbars, making daily store checkout and inventory management fast and seamless.
             </p>
 
             {canPrompt ? (
