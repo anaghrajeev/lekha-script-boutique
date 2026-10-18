@@ -5,6 +5,7 @@ import { usePosStore } from '../store/usePosStore.jsx';
 import { supabase } from '../lib/supabase.js';
 import { navigate } from '../router.jsx';
 import { generateBatchNumber } from '../lib/batchUtils.js';
+import { usePwaInstall } from '../lib/usePwaInstall.js';
 
 const emptyForm = {
   brand:       '',
@@ -57,6 +58,92 @@ function SearchableProductSelect({ products, value, onChange }) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Desktop App Install Modal ──────────────────────────────────────────────────
+function InstallDesktopAppModal({ isOpen, onClose, onInstall, canPrompt, isStandalone }) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="admin-confirm-overlay" role="dialog" aria-modal="true" style={{ zIndex: 1200 }}>
+      <div className="admin-confirm-box" style={{ maxWidth: '500px', textAlign: 'left', padding: '32px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '18px' }}>
+          <div style={{ 
+            width: '52px', height: '52px', borderRadius: '14px', 
+            backgroundColor: 'var(--primary-container)', color: 'var(--on-primary-container)', 
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+          }}>
+            <span className="material-symbols-outlined" style={{ fontSize: '32px' }}>desktop_windows</span>
+          </div>
+          <div>
+            <h3 style={{ margin: 0, fontSize: '20px', color: 'var(--on-surface)' }}>Install as Desktop App</h3>
+            <p style={{ margin: 0, fontSize: '13px', color: 'var(--on-surface-variant)' }}>Lekha Script Boutique & Retail POS</p>
+          </div>
+        </div>
+
+        {isStandalone ? (
+          <div style={{ padding: '16px', borderRadius: '12px', backgroundColor: 'var(--surface-container-high)', marginBottom: '24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--whatsapp)', fontWeight: '600', marginBottom: '4px' }}>
+              <span className="material-symbols-outlined">check_circle</span>
+              <span>Already Installed!</span>
+            </div>
+            <p style={{ margin: 0, fontSize: '13px', color: 'var(--on-surface-variant)' }}>
+              You are currently running Lekha Script inside its dedicated desktop app window.
+            </p>
+          </div>
+        ) : (
+          <>
+            <p style={{ fontSize: '14px', color: 'var(--on-surface)', lineHeight: '1.6', marginBottom: '16px' }}>
+              Install Lekha Script as a dedicated standalone desktop app on your PC. It launches instantly from your Desktop or Taskbar, runs in full screen without browser toolbars, and streamlines daily store management and POS printing.
+            </p>
+
+            {canPrompt ? (
+              <div style={{ marginBottom: '20px' }}>
+                <button
+                  className="btn btn-primary"
+                  onClick={onInstall}
+                  style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', fontSize: '15px' }}
+                >
+                  <span className="material-symbols-outlined">download</span>
+                  Install to Desktop Now
+                </button>
+              </div>
+            ) : (
+              <div style={{ padding: '16px', borderRadius: '12px', backgroundColor: 'var(--surface-container)', marginBottom: '20px', border: '1px solid var(--outline-variant)' }}>
+                <div style={{ fontWeight: '600', fontSize: '13px', marginBottom: '10px', color: 'var(--primary)' }}>
+                  How to install in your browser:
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '13px', color: 'var(--on-surface)', lineHeight: '1.4' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: '20px', color: 'var(--primary)', marginTop: '1px' }}>input</span>
+                    <div>
+                      <strong>Address Bar 1-Click:</strong> Look at the right side of your browser URL bar (near the star). Click the <strong>Install App (⊕ or 💻)</strong> icon &rarr; click <strong>Install</strong>.
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: '20px', color: 'var(--primary)', marginTop: '1px' }}>more_vert</span>
+                    <div>
+                      <strong>Browser Menu:</strong>
+                      <div style={{ marginTop: '4px', color: 'var(--on-surface-variant)' }}>
+                        • <strong>Chrome:</strong> Click Menu (⋮) &rarr; <em>Save and share</em> &rarr; <em>Install Lekha Script</em><br/>
+                        • <strong>Edge:</strong> Click Menu (...) &rarr; <em>Apps</em> &rarr; <em>Install this site as an app</em>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+          <button className="btn btn-outline" onClick={onClose}>
+            Close
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1642,6 +1729,25 @@ export default function AdminPanel({ onLogout }) {
   const [activeSupplierIdToBatch, setActiveSupplierIdToBatch] = useState(null);
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [showDuplicatesOnly, setShowDuplicatesOnly] = useState(false);
+  const { isStandalone, canPrompt, triggerInstall } = usePwaInstall();
+  const [showInstallModal, setShowInstallModal] = useState(false);
+
+  const handleInstallClick = async () => {
+    if (isStandalone) {
+      toast.success('Lekha Script is already running as an installed desktop app!');
+      return;
+    }
+    if (canPrompt) {
+      const res = await triggerInstall();
+      if (res.success) {
+        toast.success('Lekha Script installed to your Desktop successfully!');
+      } else if (res.outcome === 'dismissed') {
+        toast('Installation was cancelled.');
+      }
+    } else {
+      setShowInstallModal(true);
+    }
+  };
 
   const handleAddBatchForSupplier = (supplierId) => {
     setActiveSupplierIdToBatch(supplierId);
@@ -1752,6 +1858,22 @@ export default function AdminPanel({ onLogout }) {
         />
       )}
 
+      {showInstallModal && (
+        <InstallDesktopAppModal
+          isOpen={showInstallModal}
+          onClose={() => setShowInstallModal(false)}
+          onInstall={async () => {
+            const res = await triggerInstall();
+            if (res.success) {
+              toast.success('Lekha Script installed to Desktop!');
+              setShowInstallModal(false);
+            }
+          }}
+          canPrompt={canPrompt}
+          isStandalone={isStandalone}
+        />
+      )}
+
       {showForm && (
         <ProductForm
           initial={
@@ -1778,7 +1900,22 @@ export default function AdminPanel({ onLogout }) {
               </h1>
               <p className="admin-page-subtitle">Manage your products and brands</p>
             </div>
-            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+              <button 
+                className="btn btn-primary"
+                onClick={handleInstallClick}
+                id="admin-install-desktop-btn"
+                style={{
+                  backgroundColor: isStandalone ? 'rgba(255,255,255,0.1)' : 'var(--primary-container)',
+                  borderColor: isStandalone ? 'rgba(255,255,255,0.2)' : 'var(--primary)',
+                  color: isStandalone ? 'white' : 'var(--on-primary-container)',
+                  fontWeight: '600'
+                }}
+                title={isStandalone ? "Running as Desktop App" : "Install as an app on your Desktop"}
+              >
+                <span className="material-symbols-outlined">{isStandalone ? 'verified' : 'desktop_windows'}</span>
+                {isStandalone ? 'Desktop App' : 'Install Desktop App'}
+              </button>
               <button className="btn btn-primary" onClick={() => navigate('#/')} id="admin-back-home-btn">
                 <span className="material-symbols-outlined">home</span>
                 Back to Site
@@ -1861,6 +1998,33 @@ export default function AdminPanel({ onLogout }) {
               <span className="material-symbols-outlined">point_of_sale</span>
               <h2>Retail POS</h2>
               <p>Physical store billing, sales & returns, and analytics.</p>
+            </div>
+
+            {/* Install Desktop App Card */}
+            <div 
+              className="admin-dash-card" 
+              onClick={handleInstallClick}
+              id="admin-dash-card-install-app"
+              style={{
+                borderColor: isStandalone ? 'var(--outline-variant)' : 'var(--primary)',
+                position: 'relative'
+              }}
+            >
+              <span className="material-symbols-outlined" style={{ color: isStandalone ? 'var(--whatsapp)' : 'var(--primary)' }}>
+                {isStandalone ? 'verified' : 'desktop_windows'}
+              </span>
+              <h2>{isStandalone ? 'Desktop App Installed' : 'Install Desktop App'}</h2>
+              <p>
+                {isStandalone 
+                  ? 'Lekha Script is running in standalone desktop app mode.' 
+                  : 'Install to your Desktop or Taskbar for 1-click POS & boutique management without browser tabs.'}
+              </p>
+              {!isStandalone && (
+                <div style={{ marginTop: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: '600', color: 'var(--primary)' }}>
+                  <span>Install Now</span>
+                  <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>arrow_forward</span>
+                </div>
+              )}
             </div>
           </div>
         ) : activeTab === 'orders' ? (

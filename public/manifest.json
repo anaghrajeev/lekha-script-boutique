@@ -1,0 +1,25 @@
+{
+  "name": "Lekha Script – Boutique & POS",
+  "short_name": "Lekha Script",
+  "description": "Lekha Script Inner Concepts – Boutique Admin & Retail POS",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#faf7fa",
+  "theme_color": "#7a3580",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "192x192 500x500 512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
