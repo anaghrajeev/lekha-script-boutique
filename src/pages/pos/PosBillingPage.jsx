@@ -267,12 +267,7 @@ const PosBillingPage = ({ onLogout }) => {
       toast.error("No previous bill available in this session.");
       return;
     }
-    const printContent = document.getElementById('print-receipt').innerHTML;
-    const originalContent = document.body.innerHTML;
-    document.body.innerHTML = printContent;
     window.print();
-    document.body.innerHTML = originalContent;
-    window.location.reload();
   };
 
   const handleAddMiscItem = () => {
@@ -819,7 +814,7 @@ const PosBillingPage = ({ onLogout }) => {
       )}
 
       {/* Hidden Print Receipt Template */}
-      <div id="print-receipt" style={{ display: 'none', padding: '10px', fontFamily: 'monospace' }}>
+      <div id="print-receipt" className="receipt-container" style={{ display: 'none', padding: '10px' }}>
         {(() => {
           const pData = lastBillData || {
             billNo: 'SINV-0000',

@@ -293,7 +293,7 @@ const PosReturnsPage = ({ onLogout }) => {
 
       {/* Hidden Print Receipt Template */}
       {selectedBill && (
-        <div id="print-receipt" style={{ display: 'none', padding: '10px', fontFamily: 'monospace' }}>
+        <div id="print-receipt" className="receipt-container" style={{ display: 'none', padding: '10px' }}>
           {/* Header */}
           <div style={{ textAlign: 'center', marginBottom: '10px' }}>
             <div style={{ fontSize: '12px', marginBottom: '5px', textTransform: 'uppercase' }}>
