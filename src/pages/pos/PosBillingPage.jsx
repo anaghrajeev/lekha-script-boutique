@@ -863,11 +863,11 @@ const PosBillingPage = ({ onLogout }) => {
               <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
-                    <th style={{ textAlign: 'left', paddingBottom: '4px' }}>Product</th>
-                    <th style={{ textAlign: 'center', paddingBottom: '4px' }}>Size</th>
-                    <th style={{ textAlign: 'right', paddingBottom: '4px' }}>Rate</th>
-                    <th style={{ textAlign: 'center', paddingBottom: '4px' }}>Qty</th>
-                    <th style={{ textAlign: 'right', paddingBottom: '4px' }}>Amount</th>
+                    <th style={{ textAlign: 'left', paddingBottom: '4px', width: '42%' }}>Product</th>
+                    <th style={{ textAlign: 'center', paddingBottom: '4px', width: '14%' }}>Size</th>
+                    <th style={{ textAlign: 'right', paddingBottom: '4px', width: '16%' }}>Rate</th>
+                    <th style={{ textAlign: 'center', paddingBottom: '4px', width: '12%' }}>Qty</th>
+                    <th style={{ textAlign: 'right', paddingBottom: '4px', width: '16%' }}>Amount</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -878,11 +878,11 @@ const PosBillingPage = ({ onLogout }) => {
                   </tr>
                   {pData.items.map((i, idx) => (
                     <tr key={i.key || idx}>
-                      <td style={{ textAlign: 'left', paddingBottom: '4px', maxWidth: '100px', wordWrap: 'break-word' }}>{`${i.model || ''}-${i.category || ''}`.toUpperCase().replace(/^-|-$/, '') || (i.name || i.custom_name || 'Unknown').toUpperCase()}</td>
-                      <td style={{ textAlign: 'center', paddingBottom: '4px' }}>{i.size || '-'}</td>
-                      <td style={{ textAlign: 'right', paddingBottom: '4px' }}>{i.unit_price.toFixed(2)}</td>
-                      <td style={{ textAlign: 'center', paddingBottom: '4px', whiteSpace: 'nowrap' }}>{i.quantity} PCS</td>
-                      <td style={{ textAlign: 'right', paddingBottom: '4px' }}>{i.subtotal.toFixed(2)}</td>
+                      <td style={{ textAlign: 'left', paddingBottom: '4px', width: '42%', wordBreak: 'break-word' }}>{`${i.model || ''}-${i.category || ''}`.toUpperCase().replace(/^-|-$/, '') || (i.name || i.custom_name || 'Unknown').toUpperCase()}</td>
+                      <td style={{ textAlign: 'center', paddingBottom: '4px', width: '14%' }}>{i.size || '-'}</td>
+                      <td style={{ textAlign: 'right', paddingBottom: '4px', width: '16%' }}>{i.unit_price.toFixed(2)}</td>
+                      <td style={{ textAlign: 'center', paddingBottom: '4px', width: '12%', whiteSpace: 'nowrap' }}>{i.quantity}</td>
+                      <td style={{ textAlign: 'right', paddingBottom: '4px', width: '16%' }}>{i.subtotal.toFixed(2)}</td>
                     </tr>
                   ))}
                 </tbody>

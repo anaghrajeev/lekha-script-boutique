@@ -76,7 +76,7 @@ export const printThermalReceipt = (elementId = 'print-receipt') => {
           }
           th, td {
             color: #000000 !important;
-            padding: 3px 0 !important;
+            padding: 3px 2px !important;
           }
           th:last-child, td:last-child {
             padding-right: 3px !important;
