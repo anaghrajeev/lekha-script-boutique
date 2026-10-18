@@ -815,7 +815,7 @@ const PosBillingPage = ({ onLogout }) => {
       )}
 
       {/* Hidden Print Receipt Template */}
-      <div id="print-receipt" className="receipt-container" style={{ display: 'none', padding: '10px' }}>
+      <div id="print-receipt" className="receipt-container" style={{ display: 'none', width: '66mm', padding: '2mm 3mm 2mm 1mm', boxSizing: 'border-box' }}>
         {(() => {
           const pData = lastBillData || {
             billNo: 'SINV-0000',
