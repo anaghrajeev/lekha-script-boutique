@@ -4,6 +4,7 @@ import { usePosStore } from '../../store/usePosStore';
 import { useStore } from '../../store/useStore';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-hot-toast';
+import { printThermalReceipt } from '../../lib/printReceipt.js';
 
 const PosReturnsPage = ({ onLogout }) => {
   const { bills, fetchBills, fetchPosData, deleteBill, settings } = usePosStore();
@@ -172,7 +173,7 @@ const PosReturnsPage = ({ onLogout }) => {
                 <h2 className="font-serif">Bill Details: {selectedBill.bill_no}</h2>
                 <div style={{ display: 'flex', gap: '12px' }}>
                   <button 
-                    onClick={() => window.print()}
+                    onClick={() => printThermalReceipt('print-receipt')}
                     style={{ 
                       padding: '8px 16px', backgroundColor: 'transparent', color: 'var(--primary)', 
                       border: '1px solid var(--primary)', borderRadius: '8px', fontSize: '14px'

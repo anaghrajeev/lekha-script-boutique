@@ -5,6 +5,7 @@ import { useStore } from '../../store/useStore.jsx';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase.js';
 import { generateBatchNumber } from '../../lib/batchUtils.js';
+import { printThermalReceipt } from '../../lib/printReceipt.js';
 
 const PosBillingPage = ({ onLogout }) => {
   const { 
@@ -267,7 +268,7 @@ const PosBillingPage = ({ onLogout }) => {
       toast.error("No previous bill available in this session.");
       return;
     }
-    window.print();
+    printThermalReceipt('print-receipt');
   };
 
   const handleAddMiscItem = () => {
@@ -962,7 +963,7 @@ const PosBillingPage = ({ onLogout }) => {
               </button>
               <button 
                 onClick={() => {
-                  window.print();
+                  printThermalReceipt('print-receipt');
                   setShowCheckoutDialog(false);
                   clearPosCart();
                 }}
