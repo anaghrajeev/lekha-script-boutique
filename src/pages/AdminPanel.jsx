@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { useStore } from '../store/useStore.jsx';
 import { usePosStore } from '../store/usePosStore.jsx';
@@ -1628,25 +1628,55 @@ export default function AdminPanel({ onLogout }) {
   const {
     products, cart, availableSizes, batches,
     addProduct, updateProduct, deleteProduct,
-    loading, fetchData,
+    loading, fetchData, fetchOnlineOrders,
   } = useStore();
 
   const [showForm,        setShowForm]        = useState(false);
   const [editingProduct,  setEditingProduct]  = useState(null);
   const [confirm,         setConfirm]         = useState(null);
-  const [searchTerm,      setSearchTerm]      = useState('');
-  const [filterBrand,     setFilterBrand]     = useState('all');
+  const [searchTerm,      setSearchTerm]      = useState(() => {
+    return sessionStorage.getItem('admin_search_term') || '';
+  });
+  const [filterBrand,     setFilterBrand]     = useState(() => {
+    return sessionStorage.getItem('admin_filter_brand') || 'all';
+  });
   const [saving,          setSaving]          = useState(false);
   const [opError,         setOpError]         = useState('');
-  const [activeTab,       setActiveTab]       = useState('dashboard');
-  const [activeProductTab,setActiveProductTab]= useState('products');
-  const [activeOrderTab,  setActiveOrderTab]  = useState('list');
+  const [activeTab,       setActiveTab]       = useState(() => {
+    return sessionStorage.getItem('admin_active_tab') || 'dashboard';
+  });
+  const [activeProductTab,setActiveProductTab]= useState(() => {
+    return sessionStorage.getItem('admin_active_product_tab') || 'products';
+  });
+  const [activeOrderTab,  setActiveOrderTab]  = useState(() => {
+    return sessionStorage.getItem('admin_active_order_tab') || 'list';
+  });
   const [activeSupplierIdToBatch, setActiveSupplierIdToBatch] = useState(null);
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [showDuplicatesOnly, setShowDuplicatesOnly] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const handleHardRefresh = async () => {
+  useEffect(() => {
+    sessionStorage.setItem('admin_active_tab', activeTab);
+  }, [activeTab]);
+
+  useEffect(() => {
+    sessionStorage.setItem('admin_active_product_tab', activeProductTab);
+  }, [activeProductTab]);
+
+  useEffect(() => {
+    sessionStorage.setItem('admin_active_order_tab', activeOrderTab);
+  }, [activeOrderTab]);
+
+  useEffect(() => {
+    sessionStorage.setItem('admin_search_term', searchTerm);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    sessionStorage.setItem('admin_filter_brand', filterBrand);
+  }, [filterBrand]);
+
+  const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
       if ('caches' in window) {
@@ -1659,10 +1689,26 @@ export default function AdminPanel({ onLogout }) {
           await reg.update();
         }
       }
+      await Promise.all([
+        fetchData(),
+        fetchOnlineOrders ? fetchOnlineOrders() : Promise.resolve(),
+      ]);
+      toast.success('Data refreshed successfully');
     } catch (e) {
-      console.warn('Cache clear error during hard refresh:', e);
+      console.warn('Refresh error:', e);
+      toast.error('Failed to refresh data: ' + (e?.message || 'Unknown error'));
+    } finally {
+      setIsRefreshing(false);
     }
-    window.location.reload();
+  };
+
+  const handleLogout = () => {
+    sessionStorage.removeItem('admin_active_tab');
+    sessionStorage.removeItem('admin_active_product_tab');
+    sessionStorage.removeItem('admin_active_order_tab');
+    sessionStorage.removeItem('admin_search_term');
+    sessionStorage.removeItem('admin_filter_brand');
+    onLogout();
   };
 
   const handleAddBatchForSupplier = (supplierId) => {
@@ -1685,6 +1731,29 @@ export default function AdminPanel({ onLogout }) {
     });
     return dupes;
   }, [products]);
+
+  const stockByProductId = useMemo(() => {
+    const map = {};
+    (batches || []).forEach(b => {
+      if (b.product_id) {
+        map[b.product_id] = (map[b.product_id] || 0) + (Number(b.quantity) || 0);
+      }
+    });
+    return map;
+  }, [batches]);
+
+  const inStockProductCount = useMemo(() => {
+    return products.filter(p => {
+      const batchStock = stockByProductId[p.id] || 0;
+      if (batchStock > 0) return true;
+      if (!p.brand && !p.model && p.in_stock) return true;
+      return false;
+    }).length;
+  }, [products, stockByProductId]);
+
+  const totalStockUnits = useMemo(() => {
+    return (batches || []).reduce((sum, b) => sum + (Number(b.quantity) || 0), 0);
+  }, [batches]);
 
   const filteredProducts = products.filter((p) => {
     const matchBrand  = filterBrand === 'all' || p.brand === filterBrand;
@@ -1804,8 +1873,8 @@ export default function AdminPanel({ onLogout }) {
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
               <button 
                 className="btn btn-primary"
-                onClick={handleHardRefresh}
-                id="admin-hard-refresh-btn"
+                onClick={handleRefresh}
+                id="admin-refresh-btn"
                 disabled={isRefreshing}
                 style={{
                   backgroundColor: 'rgba(255,255,255,0.15)',
@@ -1813,7 +1882,7 @@ export default function AdminPanel({ onLogout }) {
                   color: '#ffffff',
                   fontWeight: '600'
                 }}
-                title="Hard refresh page and clear cache"
+                title="Refresh products, stock, and orders"
               >
                 <span 
                   className="material-symbols-outlined" 
@@ -1837,7 +1906,7 @@ export default function AdminPanel({ onLogout }) {
               </button>
               <button
                 className="btn btn-primary"
-                onClick={onLogout}
+                onClick={handleLogout}
                 style={{ background: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.2)' }}
                 id="admin-logout-btn"
               >
@@ -1852,7 +1921,11 @@ export default function AdminPanel({ onLogout }) {
             {[
               { icon: 'inventory_2', value: products.length, label: 'Products' },
               { icon: 'shopping_bag',value: cart.length,     label: 'Cart Items' },
-              { icon: 'check_circle',value: products.filter((p) => p.in_stock).length, label: 'In Stock' },
+              { 
+                icon: 'check_circle',
+                value: inStockProductCount, 
+                label: totalStockUnits > 0 ? `In Stock (${totalStockUnits} units)` : 'In Stock' 
+              },
             ].map(({ icon, value, label }) => (
               <div key={label} className="admin-stat-card">
                 <span className="material-symbols-outlined">{icon}</span>
@@ -1909,23 +1982,6 @@ export default function AdminPanel({ onLogout }) {
               <span className="material-symbols-outlined">point_of_sale</span>
               <h2>Retail POS</h2>
               <p>Physical store billing, sales & returns, and analytics.</p>
-            </div>
-
-            {/* Hard Refresh Card */}
-            <div 
-              className="admin-dash-card" 
-              onClick={handleHardRefresh}
-              id="admin-dash-card-refresh"
-            >
-              <span className="material-symbols-outlined" style={{ color: 'var(--primary)' }}>
-                refresh
-              </span>
-              <h2>Refresh</h2>
-              <p>Perform a hard refresh to clear browser cache and reload latest products, orders, and stock.</p>
-              <div style={{ marginTop: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: '600', color: 'var(--primary)' }}>
-                <span>{isRefreshing ? 'Refreshing...' : 'Refresh Now'}</span>
-                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>arrow_forward</span>
-              </div>
             </div>
           </div>
         ) : activeTab === 'orders' ? (
@@ -2131,8 +2187,7 @@ export default function AdminPanel({ onLogout }) {
             ) : (
               <div className="admin-product-list">
                 {filteredProducts.map((product) => {
-                  const productBatches = batches.filter(b => b.product_id === product.id);
-                  const totalStock = productBatches.reduce((sum, b) => sum + b.quantity, 0);
+                  const totalStock = stockByProductId[product.id] || 0;
 
                   return (
                     <div key={product.id} className="admin-product-row" id={`admin-row-${product.id}`}>
