@@ -5,6 +5,7 @@ import { useStore } from '../../store/useStore';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-hot-toast';
 import { printThermalReceipt } from '../../lib/printReceipt.js';
+import { broadcastStockChange } from '../../lib/stockSync.js';
 
 const getTodayDateString = () => {
   const now = new Date();
@@ -82,6 +83,7 @@ const PosReturnsPage = ({ onLogout }) => {
       await fetchBills();
       await fetchPosData(); // Refresh POS inventory
       await fetchGlobalData(); // Refresh global Admin inventory
+      broadcastStockChange('RETURN_PROCESSED', { billId: selectedBill.id });
     } catch (err) {
       toast.error('Return failed: ' + (err.message || 'Unknown error'));
     } finally {

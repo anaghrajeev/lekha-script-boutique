@@ -17,8 +17,8 @@ const PosBatchesPage = React.lazy(() => import('./pages/pos/PosBatchesPage'));
 const PosReturnsPage = React.lazy(() => import('./pages/pos/PosReturnsPage'));
 const PosAnalyticsPage = React.lazy(() => import('./pages/pos/PosAnalyticsPage'));
 const PosSettingsPage = React.lazy(() => import('./pages/pos/PosSettingsPage'));
-import { StoreProvider } from './store/useStore.jsx';
-import { PosStoreProvider } from './store/usePosStore.jsx';
+import { StoreProvider, useStore } from './store/useStore.jsx';
+import { PosStoreProvider, usePosStore } from './store/usePosStore.jsx';
 import { useAuth } from './store/useAuth.js';
 import { useRouter } from './router.jsx';
 import './index.css';
@@ -42,8 +42,18 @@ const HomePage = () => (
 function AppInner() {
   const location = useRouter();
   const { isLoggedIn, login, logout, loading } = useAuth();
+  const { refreshBatches } = useStore();
+  const { fetchPosData } = usePosStore();
   const isPos = location.route.startsWith('pos');
   const isAdminOrPos = location.route === 'admin' || isPos;
+
+  React.useEffect(() => {
+    // Silently re-sync stock batches whenever navigating between admin/pos/shop
+    if (location.route === 'admin' || location.route.startsWith('pos') || location.route === 'shop') {
+      refreshBatches?.();
+      fetchPosData?.();
+    }
+  }, [location.route, refreshBatches, fetchPosData]);
 
   React.useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });

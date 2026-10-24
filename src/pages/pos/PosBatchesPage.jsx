@@ -5,6 +5,7 @@ import { useStore } from '../../store/useStore.jsx';
 import { supabase } from '../../lib/supabase.js';
 import { generateBatchNumber } from '../../lib/batchUtils.js';
 import { toast } from 'react-hot-toast';
+import { broadcastStockChange } from '../../lib/stockSync.js';
 
 // Searchable product selector for Add/Edit Batch
 function SearchableProductSelect({ products, value, onChange }) {
@@ -185,6 +186,7 @@ export default function PosBatchesPage({ onLogout }) {
 
       await fetchPosData();
       await fetchGlobalData();
+      broadcastStockChange(editingBatchId ? 'BATCH_UPDATED' : 'BATCH_CREATED');
       setShowAddModal(false);
       setEditingBatchId(null);
     } catch (err) {

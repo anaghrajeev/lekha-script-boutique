@@ -7,6 +7,7 @@ import React, {
   useMemo
 } from 'react';
 import { supabase } from '../lib/supabase.js';
+import { broadcastStockChange, onStockChange } from '../lib/stockSync.js';
 
 // ── Cart helpers (localStorage) ───────────────────────────────────────────────
 const CART_KEY = 'ls_cart';
@@ -39,20 +40,44 @@ export function StoreProvider({ children }) {
     setLoading(true);
     setError(null);
     try {
-      const [{ data: prods, error: e1 }, { data: batchesData, error: e2 }, { data: settingsData, error: e3 }] =
+      // Helper to fetch records up to a limit (e.g. 3000) using chunked range queries to bypass Supabase 1000-row limit
+      const fetchUpToLimit = async (table, queryBuilder, limit = 3000) => {
+        const pageSize = 1000;
+        const totalPages = Math.ceil(limit / pageSize);
+        const pagePromises = Array.from({ length: totalPages }, (_, i) => {
+          let q = supabase.from(table).select('*');
+          if (queryBuilder) q = queryBuilder(q);
+          return q.range(i * pageSize, (i + 1) * pageSize - 1);
+        });
+
+        const results = await Promise.all(pagePromises);
+        const combined = [];
+        for (const res of results) {
+          if (res.error) throw res.error;
+          if (res.data) combined.push(...res.data);
+          // If a page returned fewer than pageSize, no more records remain
+          if (res.data && res.data.length < pageSize) break;
+        }
+        return combined;
+      };
+
+      const [prods, batchesData, { data: settingsData, error: e3 }] =
         await Promise.all([
-          supabase
-            .from('products')
-            .select('*')
-            .neq('is_active', false)
-            .order('created_at', { ascending: false }),
-          supabase.from('batches').select('*'),
+          fetchUpToLimit(
+            'products',
+            (q) => q.neq('is_active', false).order('created_at', { ascending: false }),
+            3000
+          ),
+          fetchUpToLimit(
+            'batches',
+            (q) => q.order('created_at', { ascending: false }),
+            3000
+          ),
           supabase.from('store_settings').select('*').limit(1).maybeSingle(),
         ]);
-      if (e1) throw e1;
-      if (e2) throw e2;
+
       if (e3) console.warn("Failed to load store settings", e3);
-      
+
       setProducts(prods || []);
       setBatches(batchesData || []);
       setStoreSettings(settingsData || { delivery_charge: 0, free_delivery_threshold: 0 });
@@ -64,7 +89,71 @@ export function StoreProvider({ children }) {
     }
   }, []);
 
+  // Dedicated fast batches refresh (only ~25KB, ~80ms)
+  const refreshBatches = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('batches')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (!error && data) {
+        setBatches(data);
+      }
+    } catch (err) {
+      console.warn('Refresh batches error:', err);
+    }
+  }, []);
+
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // ── Realtime & Cross-tab Stock Synchronization ──────────────────────────
+  useEffect(() => {
+    // 1. Listen for cross-tab and in-memory stock changes
+    const unsubscribe = onStockChange(() => {
+      refreshBatches();
+    });
+
+    // 2. Supabase Realtime channel for multi-device push updates
+    const channel = supabase
+      .channel('realtime_batches_store')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'batches' }, () => {
+        refreshBatches();
+      })
+      .subscribe();
+
+    // 3. Tab visibility / window focus revalidation (throttled to at most once per 8 seconds)
+    let lastFocusSync = 0;
+    const handleFocusOrVisible = () => {
+      const now = Date.now();
+      if (now - lastFocusSync > 8000) {
+        lastFocusSync = now;
+        refreshBatches();
+      }
+    };
+
+    window.addEventListener('focus', handleFocusOrVisible);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        handleFocusOrVisible();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // 4. Gentle background sync every 25 seconds ONLY while tab is actively visible
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        refreshBatches();
+      }
+    }, 25000);
+
+    return () => {
+      unsubscribe();
+      supabase.removeChannel(channel);
+      window.removeEventListener('focus', handleFocusOrVisible);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      clearInterval(interval);
+    };
+  }, [refreshBatches]);
 
   // ── Product CRUD ──────────────────────────────────────────────────────────
   const addProduct = useCallback(async (data) => {
@@ -273,6 +362,7 @@ export function StoreProvider({ children }) {
     if (error) throw error;
     await fetchOnlineOrders(); // refresh
     await fetchData(); // refresh batches and products
+    broadcastStockChange('ORDER_ACCEPTED', { orderId });
   }, [fetchOnlineOrders, fetchData]);
 
   const rejectOrder = useCallback(async (orderId) => {
@@ -286,6 +376,7 @@ export function StoreProvider({ children }) {
     if (error) throw error;
     await fetchOnlineOrders(); // refresh
     await fetchData(); // refresh batches and products
+    broadcastStockChange('ORDER_CANCELLED', { orderId });
   }, [fetchOnlineOrders, fetchData]);
 
   const updateStoreSettings = useCallback(async (updates) => {
@@ -396,7 +487,7 @@ export function StoreProvider({ children }) {
   // ── Context value ──────────────────────────────────────────────────────────
   const value = {
     products, virtualProducts, brands, availableSizes, cart, cartCount, cartTotal, loading, error, batches, onlineOrders, storeSettings,
-    fetchData, fetchOnlineOrders, placeOnlineOrder, acceptOrder, rejectOrder, cancelOnlineOrder,
+    fetchData, refreshBatches, fetchOnlineOrders, placeOnlineOrder, acceptOrder, rejectOrder, cancelOnlineOrder,
     addProduct, updateProduct, deleteProduct, incrementClick,
     addBrand, updateBrand, deleteBrand, addSize, updateStoreSettings,
     addToCart, removeFromCart, updateCartQty, clearCart,

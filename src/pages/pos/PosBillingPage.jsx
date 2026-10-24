@@ -6,6 +6,7 @@ import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase.js';
 import { generateBatchNumber } from '../../lib/batchUtils.js';
 import { printThermalReceipt } from '../../lib/printReceipt.js';
+import { broadcastStockChange } from '../../lib/stockSync.js';
 
 const PosBillingPage = ({ onLogout }) => {
   const { 
@@ -107,6 +108,7 @@ const PosBillingPage = ({ onLogout }) => {
 
       await fetchPosData();
       await fetchGlobalData();
+      broadcastStockChange('QUICK_BATCH_CREATED', { batchNo: finalBatchNo });
 
       toast.success(`Batch ${finalBatchNo} added (${newRecord.quantity} in stock)!`);
       setAddBatchProduct(null);

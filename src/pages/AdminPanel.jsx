@@ -5,6 +5,7 @@ import { usePosStore } from '../store/usePosStore.jsx';
 import { supabase } from '../lib/supabase.js';
 import { navigate } from '../router.jsx';
 import { generateBatchNumber } from '../lib/batchUtils.js';
+import { broadcastStockChange } from '../lib/stockSync.js';
 
 const emptyForm = {
   brand:       '',
@@ -1007,6 +1008,7 @@ function BulkStockEntryModal({ supplierId, supplierName, products, onClose, onSa
       if (error) throw error;
 
       toast.success(`${validRows.length} batch(es) added successfully!`);
+      broadcastStockChange('BULK_BATCH_CREATED', { count: validRows.length });
       onSaved();
       onClose();
     } catch (err) {
@@ -1248,9 +1250,10 @@ function InventoryBatchesManager({ activeSupplierIdToBatch, onBatchModalClosed }
           batch_no: finalBatchNo
         }]);
         if (error) throw error;
-        await fetchPosData();
-        await fetchGlobalData();
       }
+      await fetchPosData();
+      await fetchGlobalData();
+      broadcastStockChange(editingBatchId ? 'BATCH_UPDATED' : 'BATCH_CREATED');
       handleCloseModal();
       setEditingBatchId(null);
       setFormData({ product_id: '', batch_no: '', quantity: 10, cost_price: 0, selling_price: 0, supplier: '', batch_date: new Date().toISOString().split('T')[0] });
@@ -1287,6 +1290,7 @@ function InventoryBatchesManager({ activeSupplierIdToBatch, onBatchModalClosed }
       setConfirmDeleteBatch(null);
       await fetchPosData();
       await fetchGlobalData();
+      broadcastStockChange('BATCH_DELETED', { batchId: confirmDeleteBatch.id });
     } catch (err) {
       toast.error('Failed to delete batch: ' + err.message);
     }
@@ -1654,6 +1658,8 @@ export default function AdminPanel({ onLogout }) {
   const [activeSupplierIdToBatch, setActiveSupplierIdToBatch] = useState(null);
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [showDuplicatesOnly, setShowDuplicatesOnly] = useState(false);
+  const [showMultiBatchOnly, setShowMultiBatchOnly] = useState(false);
+  const [expandedBatchProductId, setExpandedBatchProductId] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
@@ -1732,6 +1738,17 @@ export default function AdminPanel({ onLogout }) {
     return dupes;
   }, [products]);
 
+  const batchesByProductId = useMemo(() => {
+    const map = {};
+    (batches || []).forEach(b => {
+      if (b.product_id) {
+        if (!map[b.product_id]) map[b.product_id] = [];
+        map[b.product_id].push(b);
+      }
+    });
+    return map;
+  }, [batches]);
+
   const stockByProductId = useMemo(() => {
     const map = {};
     (batches || []).forEach(b => {
@@ -1755,12 +1772,20 @@ export default function AdminPanel({ onLogout }) {
     return (batches || []).reduce((sum, b) => sum + (Number(b.quantity) || 0), 0);
   }, [batches]);
 
+  const multiBatchProductCount = useMemo(() => {
+    return products.filter(p => (batchesByProductId[p.id] || []).length > 1).length;
+  }, [products, batchesByProductId]);
+
   const filteredProducts = products.filter((p) => {
     const matchBrand  = filterBrand === 'all' || p.brand === filterBrand;
     const matchSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
     if (showDuplicatesOnly) {
       const key = `${(p.name || '').trim().toLowerCase()}--${(p.size || '').trim().toLowerCase()}--${(p.colour || '').trim().toLowerCase()}`;
       if (!duplicateKeys.has(key)) return false;
+    }
+    if (showMultiBatchOnly) {
+      const prodBatches = batchesByProductId[p.id] || [];
+      if (prodBatches.length <= 1) return false;
     }
     return matchBrand && matchSearch;
   });
@@ -2121,6 +2146,15 @@ export default function AdminPanel({ onLogout }) {
                   {showDuplicatesOnly ? 'Show All' : 'Check Duplicates'}
                 </button>
                 <button
+                  className={`btn ${showMultiBatchOnly ? 'btn-primary' : 'btn-outline'}`}
+                  onClick={() => setShowMultiBatchOnly(!showMultiBatchOnly)}
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                  title="Filter to show products that have 2 or more batches"
+                >
+                  <span className="material-symbols-outlined">layers</span>
+                  {showMultiBatchOnly ? 'Show All Products' : `Multi-Batch (${multiBatchProductCount})`}
+                </button>
+                <button
                   className="btn btn-outline"
                   onClick={() => setShowBulkUpload(true)}
                   style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
@@ -2187,7 +2221,10 @@ export default function AdminPanel({ onLogout }) {
             ) : (
               <div className="admin-product-list">
                 {filteredProducts.map((product) => {
+                  const productBatches = batchesByProductId[product.id] || [];
+                  const batchCount = productBatches.length;
                   const totalStock = stockByProductId[product.id] || 0;
+                  const isExpanded = expandedBatchProductId === product.id;
 
                   return (
                     <div key={product.id} className="admin-product-row" id={`admin-row-${product.id}`}>
@@ -2205,11 +2242,45 @@ export default function AdminPanel({ onLogout }) {
                       {/* Info */}
                       <div className="admin-product-info">
                         <p className="admin-product-name">{product.name}</p>
-                        <div className="admin-product-meta">
+                        <div className="admin-product-meta" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
                           {product.brand && <span className="brand-chip">{product.brand}</span>}
+                          
+                          {/* Total Stock adding all available batches */}
                           <span className={`stock-badge ${totalStock > 0 ? 'in-stock' : 'out-stock'}`}>
                             {totalStock > 0 ? `${totalStock} In Stock (POS)` : 'Out of Stock'}
                           </span>
+
+                          {/* How many batches of each product */}
+                          <span
+                            className="brand-chip"
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              backgroundColor: batchCount > 1 ? 'rgba(234, 88, 12, 0.12)' : (batchCount === 1 ? 'rgba(59, 130, 246, 0.1)' : 'var(--surface-container-high)'),
+                              color: batchCount > 1 ? '#c2410c' : (batchCount === 1 ? '#1d4ed8' : 'var(--on-surface-variant)'),
+                              border: batchCount > 1 ? '1px solid rgba(234, 88, 12, 0.35)' : '1px solid transparent',
+                              fontWeight: '600',
+                              cursor: batchCount > 0 ? 'pointer' : 'default',
+                              userSelect: 'none'
+                            }}
+                            onClick={(e) => {
+                              if (batchCount > 0) {
+                                e.stopPropagation();
+                                setExpandedBatchProductId(prev => prev === product.id ? null : product.id);
+                              }
+                            }}
+                            title={batchCount > 0 ? "Click to view batch breakdown" : "No batches registered for this product"}
+                          >
+                            <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>layers</span>
+                            {batchCount} {batchCount === 1 ? 'Batch' : 'Batches'}
+                            {batchCount > 0 && (
+                              <span className="material-symbols-outlined" style={{ fontSize: '14px', marginLeft: '2px' }}>
+                                {isExpanded ? 'expand_less' : 'expand_more'}
+                              </span>
+                            )}
+                          </span>
+
                           {product.featured && (
                             <span className="featured-badge">
                               <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>star</span>
@@ -2266,6 +2337,58 @@ export default function AdminPanel({ onLogout }) {
                           <span className="material-symbols-outlined">delete</span>
                         </button>
                       </div>
+
+                      {/* Batches Breakdown Drawer (shown when expanded) */}
+                      {isExpanded && batchCount > 0 && (
+                        <div style={{
+                          gridColumn: '1 / -1',
+                          marginTop: '8px',
+                          padding: '12px 16px',
+                          borderRadius: '8px',
+                          backgroundColor: 'var(--surface-container)',
+                          border: '1px solid var(--outline-variant)',
+                          boxSizing: 'border-box'
+                        }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: '600', color: 'var(--on-surface)' }}>
+                              <span className="material-symbols-outlined" style={{ fontSize: '18px', color: 'var(--primary)' }}>layers</span>
+                              Available Batches ({batchCount} {batchCount === 1 ? 'batch' : 'batches'} totaling {totalStock} units):
+                            </div>
+                            <button
+                              type="button"
+                              className="btn btn-outline"
+                              style={{ padding: '4px 10px', fontSize: '12px', height: 'auto', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                              onClick={() => setActiveProductTab('inventory')}
+                            >
+                              <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>open_in_new</span>
+                              Open in Inventory Batches
+                            </button>
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: '10px' }}>
+                            {productBatches.map((b) => (
+                              <div key={b.id} style={{
+                                padding: '10px 12px',
+                                borderRadius: '8px',
+                                background: 'var(--surface-container-lowest)',
+                                border: '1px solid var(--outline-variant)',
+                                fontSize: '12px'
+                              }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                  <span style={{ fontWeight: '700', color: 'var(--primary)' }}>{b.batch_no || 'Unassigned #'}</span>
+                                  <span className={`stock-badge ${Number(b.quantity) > 0 ? 'in-stock' : 'out-stock'}`} style={{ fontSize: '11px', padding: '2px 6px' }}>
+                                    {b.quantity} pcs
+                                  </span>
+                                </div>
+                                <div style={{ color: 'var(--on-surface-variant)', lineHeight: '1.5' }}>
+                                  <div>Selling Price: <strong style={{ color: 'var(--on-surface)' }}>₹{b.selling_price || 0}</strong></div>
+                                  {b.cost_price != null && <div>Cost Price: <strong>₹{b.cost_price}</strong></div>}
+                                  {b.batch_date && <div style={{ fontSize: '11px', color: 'var(--outline)' }}>Date: {b.batch_date}</div>}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}

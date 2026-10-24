@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { supabase } from '../lib/supabase.js';
+import { broadcastStockChange, onStockChange } from '../lib/stockSync.js';
 
 const PosStoreContext = createContext(null);
 
@@ -102,6 +103,47 @@ export function PosStoreProvider({ children }) {
 
   useEffect(() => {
     fetchPosData();
+  }, [fetchPosData]);
+
+  // ── Realtime & Cross-tab Stock Synchronization ──────────────────────────
+  useEffect(() => {
+    // 1. Cross-tab and in-memory stock changes
+    const unsubscribe = onStockChange(() => {
+      fetchPosData();
+    });
+
+    // 2. Supabase Realtime channel
+    const channel = supabase
+      .channel('realtime_batches_pos')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'batches' }, () => {
+        fetchPosData();
+      })
+      .subscribe();
+
+    // 3. Tab visibility / window focus revalidation (throttled to at most once per 8 seconds)
+    let lastFocusSync = 0;
+    const handleFocusOrVisible = () => {
+      const now = Date.now();
+      if (now - lastFocusSync > 8000) {
+        lastFocusSync = now;
+        fetchPosData();
+      }
+    };
+
+    window.addEventListener('focus', handleFocusOrVisible);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        handleFocusOrVisible();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      unsubscribe();
+      supabase.removeChannel(channel);
+      window.removeEventListener('focus', handleFocusOrVisible);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [fetchPosData]);
 
   const fetchBills = useCallback(async (limit = 50) => {
@@ -246,6 +288,7 @@ export function PosStoreProvider({ children }) {
       });
 
       fetchPosData(); // Refresh batches
+      broadcastStockChange('CHECKOUT', { billNo: data.bill_no, billId: data.bill_id });
       return { success: true, billId: data.bill_id, billNo: data.bill_no };
     } catch (err) {
       console.error('Checkout failed:', err);
@@ -261,6 +304,7 @@ export function PosStoreProvider({ children }) {
       
       setBills(prev => prev.filter(b => b.id !== billId));
       fetchPosData(); // Refresh batches stock
+      broadcastStockChange('DELETE_BILL', { billId });
       return true;
     } catch (err) {
       console.error('Delete bill failed:', err);
@@ -278,6 +322,7 @@ export function PosStoreProvider({ children }) {
         .single();
       if (error) throw error;
       setBatches(prev => prev.map(b => b.id === batchId ? data : b));
+      broadcastStockChange('BATCH_UPDATED', { batchId });
       return data;
     } catch (err) {
       console.error('Update batch failed:', err);
@@ -293,6 +338,7 @@ export function PosStoreProvider({ children }) {
         .eq('id', batchId);
       if (error) throw error;
       setBatches(prev => prev.filter(b => b.id !== batchId));
+      broadcastStockChange('BATCH_DELETED', { batchId });
       return true;
     } catch (err) {
       console.error('Delete batch failed:', err);
