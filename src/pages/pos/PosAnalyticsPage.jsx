@@ -15,6 +15,7 @@ const PosAnalyticsPage = ({ onLogout }) => {
 
   const [startDate, setStartDate] = useState(getTodayStr);
   const [endDate, setEndDate] = useState(getTodayStr);
+  const [showAllLowStock, setShowAllLowStock] = useState(false);
 
   useEffect(() => {
     fetchBills(1000); // fetch more for analytics
@@ -240,27 +241,71 @@ const PosAnalyticsPage = ({ onLogout }) => {
         </div>
 
         {/* Low Stock Alerts */}
-        <div style={{ backgroundColor: 'var(--surface-container-lowest)', borderRadius: '12px', border: '1px solid var(--outline-variant)', padding: '24px' }}>
-          <h2 className="font-serif" style={{ marginBottom: '16px', color: 'var(--error)' }}>Low Stock Alerts (≤ 5)</h2>
-          <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid var(--outline)' }}>
-                <th style={{ padding: '8px 0' }}>Product</th>
-                <th style={{ padding: '8px 0' }}>Batch / Size</th>
-                <th style={{ padding: '8px 0', textAlign: 'right' }}>Remaining</th>
-              </tr>
-            </thead>
-            <tbody>
-              {lowStockBatches.map(b => (
-                <tr key={b.id} style={{ borderBottom: '1px solid var(--outline-variant)' }}>
-                  <td style={{ padding: '12px 0' }}>{b.product?.name || 'Unknown'}</td>
-                  <td style={{ padding: '12px 0' }}>{b.batch_no || 'N/A'} {b.size ? `(${b.size})` : ''}</td>
-                  <td style={{ padding: '12px 0', textAlign: 'right', fontWeight: 'bold', color: 'var(--error)' }}>{b.quantity}</td>
+        <div style={{ backgroundColor: 'var(--surface-container-lowest)', borderRadius: '12px', border: '1px solid var(--outline-variant)', padding: '24px', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <h2 className="font-serif" style={{ margin: 0, color: 'var(--error)' }}>Low Stock Alerts (≤ 5)</h2>
+            {lowStockBatches.length > 0 && (
+              <span style={{ 
+                fontSize: '12px', 
+                fontWeight: '600', 
+                backgroundColor: 'rgba(186, 26, 26, 0.1)', 
+                color: 'var(--error)', 
+                padding: '3px 10px', 
+                borderRadius: '12px' 
+              }}>
+                {lowStockBatches.length} {lowStockBatches.length === 1 ? 'item' : 'items'}
+              </span>
+            )}
+          </div>
+
+          <div style={{ flex: 1, maxHeight: showAllLowStock && lowStockBatches.length > 10 ? '480px' : 'none', overflowY: showAllLowStock && lowStockBatches.length > 10 ? 'auto' : 'visible' }}>
+            <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
+              <thead style={{ position: showAllLowStock && lowStockBatches.length > 10 ? 'sticky' : 'static', top: 0, backgroundColor: 'var(--surface-container-lowest)', zIndex: 1 }}>
+                <tr style={{ borderBottom: '1px solid var(--outline)' }}>
+                  <th style={{ padding: '8px 0' }}>Product</th>
+                  <th style={{ padding: '8px 0' }}>Batch / Size</th>
+                  <th style={{ padding: '8px 0', textAlign: 'right' }}>Remaining</th>
                 </tr>
-              ))}
-              {lowStockBatches.length === 0 && <tr><td colSpan="3" style={{ padding: '16px 0', color: 'var(--on-surface-variant)' }}>Stock levels are healthy.</td></tr>}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {(showAllLowStock ? lowStockBatches : lowStockBatches.slice(0, 10)).map(b => (
+                  <tr key={b.id} style={{ borderBottom: '1px solid var(--outline-variant)' }}>
+                    <td style={{ padding: '12px 0' }}>{b.product?.name || 'Unknown'}</td>
+                    <td style={{ padding: '12px 0' }}>{b.batch_no || 'N/A'} {b.size ? `(${b.size})` : ''}</td>
+                    <td style={{ padding: '12px 0', textAlign: 'right', fontWeight: 'bold', color: 'var(--error)' }}>{b.quantity}</td>
+                  </tr>
+                ))}
+                {lowStockBatches.length === 0 && <tr><td colSpan="3" style={{ padding: '16px 0', color: 'var(--on-surface-variant)' }}>Stock levels are healthy.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+
+          {lowStockBatches.length > 10 && (
+            <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid var(--outline-variant)', display: 'flex', justifyContent: 'center' }}>
+              <button
+                type="button"
+                onClick={() => setShowAllLowStock(prev => !prev)}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '6px',
+                  border: '1px solid var(--outline)',
+                  backgroundColor: 'var(--surface)',
+                  color: 'var(--primary)',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>
+                  {showAllLowStock ? 'expand_less' : 'expand_more'}
+                </span>
+                {showAllLowStock ? 'Show Less (Top 10)' : `Show More (${lowStockBatches.length - 10} more)`}
+              </button>
+            </div>
+          )}
         </div>
 
       </div>
