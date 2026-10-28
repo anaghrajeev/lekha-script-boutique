@@ -2,11 +2,19 @@ import React, { useMemo, useEffect, useState } from 'react';
 import PosLayout from './PosLayout';
 import { usePosStore } from '../../store/usePosStore';
 
+const getTodayStr = () => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const PosAnalyticsPage = ({ onLogout }) => {
   const { bills, batches, fetchBills, fetchPosData } = usePosStore();
 
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [startDate, setStartDate] = useState(getTodayStr);
+  const [endDate, setEndDate] = useState(getTodayStr);
 
   useEffect(() => {
     fetchBills(1000); // fetch more for analytics
@@ -15,15 +23,19 @@ const PosAnalyticsPage = ({ onLogout }) => {
 
   const filteredBills = useMemo(() => {
     return bills.filter(b => {
-      const billDate = new Date(b.created_at || b.bill_date);
+      const rawDate = b.created_at || b.bill_date;
+      if (!rawDate) return false;
+      const billDate = new Date(rawDate);
+      if (isNaN(billDate.getTime())) return false;
+
       if (startDate) {
-        const start = new Date(startDate);
-        start.setHours(0, 0, 0, 0);
+        const [y, m, d] = startDate.split('-').map(Number);
+        const start = new Date(y, m - 1, d, 0, 0, 0, 0);
         if (billDate < start) return false;
       }
       if (endDate) {
-        const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
+        const [y, m, d] = endDate.split('-').map(Number);
+        const end = new Date(y, m - 1, d, 23, 59, 59, 999);
         if (billDate > end) return false;
       }
       return true;
@@ -128,14 +140,33 @@ const PosAnalyticsPage = ({ onLogout }) => {
               style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--outline)', fontSize: '14px' }}
             />
           </div>
-          {(startDate || endDate) && (
+          <div style={{ display: 'flex', gap: '8px', alignSelf: 'flex-end' }}>
             <button 
-              onClick={() => { setStartDate(''); setEndDate(''); }}
-              style={{ alignSelf: 'flex-end', padding: '8px 12px', color: 'var(--primary)', fontWeight: '600', backgroundColor: 'transparent', border: 'none', cursor: 'pointer' }}
+              type="button"
+              onClick={() => { const today = getTodayStr(); setStartDate(today); setEndDate(today); }}
+              style={{ 
+                padding: '8px 14px', 
+                borderRadius: '6px', 
+                border: '1px solid var(--outline)', 
+                backgroundColor: (startDate === getTodayStr() && endDate === getTodayStr()) ? 'var(--primary)' : 'var(--surface)', 
+                color: (startDate === getTodayStr() && endDate === getTodayStr()) ? '#fff' : 'var(--on-surface)', 
+                fontWeight: '600', 
+                cursor: 'pointer',
+                fontSize: '14px'
+              }}
             >
-              Clear
+              Today
             </button>
-          )}
+            {(startDate || endDate) && (
+              <button 
+                type="button"
+                onClick={() => { setStartDate(''); setEndDate(''); }}
+                style={{ padding: '8px 12px', color: 'var(--primary)', fontWeight: '600', backgroundColor: 'transparent', border: 'none', cursor: 'pointer', fontSize: '14px' }}
+              >
+                Clear
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
