@@ -1634,6 +1634,7 @@ export default function AdminPanel({ onLogout }) {
     addProduct, updateProduct, deleteProduct,
     loading, fetchData, fetchOnlineOrders,
   } = useStore();
+  const { fetchPosData } = usePosStore();
 
   const [showForm,        setShowForm]        = useState(false);
   const [editingProduct,  setEditingProduct]  = useState(null);
@@ -1697,6 +1698,7 @@ export default function AdminPanel({ onLogout }) {
       }
       await Promise.all([
         fetchData(),
+        fetchPosData ? fetchPosData() : Promise.resolve(),
         fetchOnlineOrders ? fetchOnlineOrders() : Promise.resolve(),
       ]);
       toast.success('Data refreshed successfully');
@@ -1771,6 +1773,24 @@ export default function AdminPanel({ onLogout }) {
   const totalStockUnits = useMemo(() => {
     return (batches || []).reduce((sum, b) => sum + (Number(b.quantity) || 0), 0);
   }, [batches]);
+
+  const { totalStockRetailWorth, totalStockCostWorth } = useMemo(() => {
+    const prodMap = new Map();
+    products.forEach(p => prodMap.set(p.id, p));
+    let retail = 0;
+    let cost = 0;
+    (batches || []).forEach(b => {
+      const qty = Number(b.quantity) || 0;
+      if (qty > 0) {
+        const prod = prodMap.get(b.product_id);
+        const sp = Number(b.selling_price) || Number(prod?.retail_price) || Number(prod?.price) || 0;
+        const cp = Number(b.cost_price) || Number(prod?.supplier_price) || 0;
+        retail += qty * sp;
+        cost += qty * cp;
+      }
+    });
+    return { totalStockRetailWorth: retail, totalStockCostWorth: cost };
+  }, [batches, products]);
 
   const multiBatchProductCount = useMemo(() => {
     return products.filter(p => (batchesByProductId[p.id] || []).length > 1).length;
@@ -1949,10 +1969,18 @@ export default function AdminPanel({ onLogout }) {
               { 
                 icon: 'check_circle',
                 value: inStockProductCount, 
-                label: totalStockUnits > 0 ? `In Stock (${totalStockUnits} units)` : 'In Stock' 
+                label: totalStockUnits > 0 ? `In Stock (${totalStockUnits.toLocaleString('en-IN')} units)` : 'In Stock' 
               },
-            ].map(({ icon, value, label }) => (
-              <div key={label} className="admin-stat-card">
+              {
+                icon: 'payments',
+                value: `₹${Math.round(totalStockRetailWorth).toLocaleString('en-IN')}`,
+                label: totalStockCostWorth > 0
+                  ? `Net Worth (Cost: ₹${Math.round(totalStockCostWorth).toLocaleString('en-IN')})`
+                  : 'Net Stock Worth',
+                title: `Retail Value: ₹${Number(totalStockRetailWorth).toFixed(2)} | Cost Value: ₹${Number(totalStockCostWorth).toFixed(2)}`
+              },
+            ].map(({ icon, value, label, title }) => (
+              <div key={label} className="admin-stat-card" title={title}>
                 <span className="material-symbols-outlined">{icon}</span>
                 <div>
                   <p className="stat-value">{value}</p>

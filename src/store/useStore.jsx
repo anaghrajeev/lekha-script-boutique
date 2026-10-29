@@ -6,7 +6,7 @@ import React, {
   useCallback,
   useMemo
 } from 'react';
-import { supabase } from '../lib/supabase.js';
+import { supabase, fetchAllRows } from '../lib/supabase.js';
 import { broadcastStockChange, onStockChange } from '../lib/stockSync.js';
 
 // ── Cart helpers (localStorage) ───────────────────────────────────────────────
@@ -40,38 +40,17 @@ export function StoreProvider({ children }) {
     setLoading(true);
     setError(null);
     try {
-      // Helper to fetch records up to a limit (e.g. 3000) using chunked range queries to bypass Supabase 1000-row limit
-      const fetchUpToLimit = async (table, queryBuilder, limit = 3000) => {
-        const pageSize = 1000;
-        const totalPages = Math.ceil(limit / pageSize);
-        const pagePromises = Array.from({ length: totalPages }, (_, i) => {
-          let q = supabase.from(table).select('*');
-          if (queryBuilder) q = queryBuilder(q);
-          return q.range(i * pageSize, (i + 1) * pageSize - 1);
-        });
-
-        const results = await Promise.all(pagePromises);
-        const combined = [];
-        for (const res of results) {
-          if (res.error) throw res.error;
-          if (res.data) combined.push(...res.data);
-          // If a page returned fewer than pageSize, no more records remain
-          if (res.data && res.data.length < pageSize) break;
-        }
-        return combined;
-      };
-
       const [prods, batchesData, { data: settingsData, error: e3 }] =
         await Promise.all([
-          fetchUpToLimit(
+          fetchAllRows(
             'products',
-            (q) => q.neq('is_active', false).order('created_at', { ascending: false }),
-            3000
+            '*',
+            (q) => q.neq('is_active', false).order('created_at', { ascending: false })
           ),
-          fetchUpToLimit(
+          fetchAllRows(
             'batches',
-            (q) => q.order('created_at', { ascending: false }),
-            3000
+            '*',
+            (q) => q.order('created_at', { ascending: false })
           ),
           supabase.from('store_settings').select('*').limit(1).maybeSingle(),
         ]);
@@ -89,16 +68,15 @@ export function StoreProvider({ children }) {
     }
   }, []);
 
-  // Dedicated fast batches refresh (only ~25KB, ~80ms)
+  // Dedicated fast batches refresh fetching all batches
   const refreshBatches = useCallback(async () => {
     try {
-      const { data, error } = await supabase
-        .from('batches')
-        .select('*')
-        .order('created_at', { ascending: false });
-      if (!error && data) {
-        setBatches(data);
-      }
+      const batchesData = await fetchAllRows(
+        'batches',
+        '*',
+        (q) => q.order('created_at', { ascending: false })
+      );
+      setBatches(batchesData || []);
     } catch (err) {
       console.warn('Refresh batches error:', err);
     }

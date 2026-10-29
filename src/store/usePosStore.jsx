@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { supabase } from '../lib/supabase.js';
+import { supabase, fetchAllRows } from '../lib/supabase.js';
 import { broadcastStockChange, onStockChange } from '../lib/stockSync.js';
 
 const PosStoreContext = createContext(null);
@@ -86,12 +86,11 @@ export function PosStoreProvider({ children }) {
     fetchPosSettings();
     fetchSuppliers();
     try {
-      const { data: batchesData, error: batchesError } = await supabase
-        .from('batches')
-        .select('*, product:products(name, sku, barcode, price)')
-        .order('created_at', { ascending: false });
-      
-      if (batchesError) throw batchesError;
+      const batchesData = await fetchAllRows(
+        'batches',
+        '*, product:products(name, sku, barcode, price)',
+        (q) => q.order('created_at', { ascending: false })
+      );
       setBatches(batchesData || []);
     } catch (err) {
       console.error('POS fetch error:', err);

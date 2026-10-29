@@ -238,7 +238,7 @@ export default function PosBatchesPage({ onLogout }) {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
           <div style={{ backgroundColor: 'var(--surface)', padding: '16px', borderRadius: '10px', border: '1px solid var(--outline-variant)' }}>
             <div style={{ fontSize: '12px', color: 'var(--on-surface-variant)', fontWeight: '600', textTransform: 'uppercase' }}>Total Batches</div>
-            <div style={{ fontSize: '24px', fontWeight: '700', color: 'var(--primary)', marginTop: '4px' }}>{batches.length}</div>
+            <div style={{ fontSize: '24px', fontWeight: '700', color: 'var(--primary)', marginTop: '4px' }}>{batches.length.toLocaleString()}</div>
           </div>
           <div style={{ backgroundColor: 'var(--surface)', padding: '16px', borderRadius: '10px', border: '1px solid var(--outline-variant)' }}>
             <div style={{ fontSize: '12px', color: 'var(--on-surface-variant)', fontWeight: '600', textTransform: 'uppercase' }}>Units In Stock</div>
@@ -247,7 +247,7 @@ export default function PosBatchesPage({ onLogout }) {
           <div style={{ backgroundColor: 'var(--surface)', padding: '16px', borderRadius: '10px', border: '1px solid var(--outline-variant)' }}>
             <div style={{ fontSize: '12px', color: 'var(--on-surface-variant)', fontWeight: '600', textTransform: 'uppercase' }}>Low Stock Batches</div>
             <div style={{ fontSize: '24px', fontWeight: '700', color: lowStockCount > 0 ? 'var(--error)' : 'var(--on-surface-variant)', marginTop: '4px' }}>
-              {lowStockCount}
+              {lowStockCount.toLocaleString()}
             </div>
           </div>
         </div>
