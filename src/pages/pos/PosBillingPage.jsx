@@ -309,7 +309,7 @@ const PosBillingPage = ({ onLogout }) => {
       // Auto add if only 1 batch
       const b = availableBatches[0];
       addToPosCart(product, b.id, b.selling_price || product.price, 1);
-      setSearchTerm('');
+      toast.success(`Added ${product.name}`, { duration: 1500 });
       setSelectedIndex(-1);
       searchRef.current?.focus();
     } else {
@@ -321,7 +321,7 @@ const PosBillingPage = ({ onLogout }) => {
   const handleSelectBatch = (product, batch) => {
     addToPosCart(product, batch.id, batch.selling_price || product.price, 1);
     setSelectedProduct(null);
-    setSearchTerm('');
+    toast.success(`Added ${product.name}`, { duration: 1500 });
     setSelectedIndex(-1);
     searchRef.current?.focus();
   };
@@ -343,6 +343,15 @@ const PosBillingPage = ({ onLogout }) => {
       } else if (e.key === 'Escape') {
         e.preventDefault();
         setSelectedProduct(null);
+      }
+      return;
+    }
+
+    if (e.key === 'Escape') {
+      if (searchTerm) {
+        e.preventDefault();
+        setSearchTerm('');
+        setSelectedIndex(-1);
       }
       return;
     }
@@ -392,6 +401,7 @@ const PosBillingPage = ({ onLogout }) => {
       setDiscountValue(0);
       setDiscountType('amount');
       setPaymentMode('UPI');
+      setSearchTerm('');
       // Sync global data in the background without blocking the dialog
       fetchGlobalData?.().catch(err => console.warn('Background sync error:', err));
     } catch (err) {
@@ -407,6 +417,7 @@ const PosBillingPage = ({ onLogout }) => {
     setDiscountValue(0);
     setDiscountType('amount');
     setPaymentMode('UPI');
+    setSearchTerm('');
   };
 
   const handlePrintAndCloseCheckoutDialog = () => {
@@ -416,6 +427,7 @@ const PosBillingPage = ({ onLogout }) => {
     setDiscountValue(0);
     setDiscountType('amount');
     setPaymentMode('UPI');
+    setSearchTerm('');
   };
 
   const handlePrintLastReceipt = () => {
@@ -460,23 +472,63 @@ const PosBillingPage = ({ onLogout }) => {
             <p className="text-body-md" style={{ color: 'var(--on-surface-variant)' }}>Search products or scan barcode</p>
           </div>
           
-          <input 
-            ref={searchRef}
-            type="text" 
-            placeholder="Search by name, SKU, or scan barcode..." 
-            value={searchTerm}
-            onChange={(e) => {
-              setSearchTerm(e.target.value);
-              setSelectedIndex(-1);
-            }}
-            onKeyDown={handleKeyDown}
-            style={{ 
-              padding: '16px', fontSize: '18px', width: '100%', 
-              borderRadius: '8px', border: '1px solid var(--outline)',
-              outline: 'none'
-            }}
-            autoFocus
-          />
+          <div style={{ position: 'relative', width: '100%' }}>
+            <input 
+              ref={searchRef}
+              type="text" 
+              placeholder="Search by name, SKU, or scan barcode..." 
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setSelectedIndex(-1);
+              }}
+              onKeyDown={handleKeyDown}
+              style={{ 
+                padding: '16px 48px 16px 16px', fontSize: '18px', width: '100%', 
+                borderRadius: '8px', border: '1px solid var(--outline)',
+                outline: 'none', backgroundColor: 'var(--surface)', color: 'var(--on-surface)',
+                boxSizing: 'border-box'
+              }}
+              autoFocus
+            />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchTerm('');
+                  setSelectedIndex(-1);
+                  searchRef.current?.focus();
+                }}
+                style={{
+                  position: 'absolute',
+                  right: '12px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '6px',
+                  borderRadius: '50%',
+                  color: 'var(--on-surface-variant)',
+                  transition: 'background-color 0.15s, color 0.15s'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'var(--surface-container-high)';
+                  e.currentTarget.style.color = 'var(--on-surface)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.color = 'var(--on-surface-variant)';
+                }}
+                title="Clear search"
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>close</span>
+              </button>
+            )}
+          </div>
 
           <div style={{ display: 'flex', gap: '8px' }}>
             <button 
@@ -493,6 +545,7 @@ const PosBillingPage = ({ onLogout }) => {
                 setDiscountValue(0);
                 setDiscountType('amount');
                 setPaymentMode('UPI');
+                setSearchTerm('');
               }}
               disabled={posCart.length === 0}
               className="btn btn-outline"
@@ -904,6 +957,7 @@ const PosBillingPage = ({ onLogout }) => {
                   setDiscountValue(0);
                   setDiscountType('amount');
                   setPaymentMode('UPI');
+                  setSearchTerm('');
                 }}
                 style={{ flex: 1, padding: '16px', border: '1px solid var(--error)', color: 'var(--error)', borderRadius: '8px', fontWeight: '600' }}
               >
