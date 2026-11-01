@@ -382,8 +382,8 @@ const PosReturnsPage = ({ onLogout }) => {
             ) : (
               <h1 style={{ fontFamily: '"Brush Script MT", "Pacifico", cursive', fontSize: '36px', margin: '0', lineHeight: '1', fontWeight: 'normal' }}>Lekha Script</h1>
             )}
-            <div style={{ fontSize: '11px', lineHeight: '1.4' }}>Near P.C Junction Areacode Road,Mukkam kozhikode</div>
-            <div style={{ fontSize: '11px', lineHeight: '1.4' }}>,kerala ,india</div>
+            <div style={{ fontSize: '11px', lineHeight: '1.4' }}>Near P.C Junction, Areacode Road, Mukkam</div>
+            <div style={{ fontSize: '11px', lineHeight: '1.4' }}>Kozhikode, Kerala, India</div>
             <div style={{ fontSize: '12px', fontWeight: 'bold', marginTop: '4px' }}>Contact : 9745298723</div>
           </div>
 

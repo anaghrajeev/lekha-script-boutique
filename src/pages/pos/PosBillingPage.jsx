@@ -37,8 +37,8 @@ function ReceiptTemplate({ data, settings }) {
             Lekha Script
           </h1>
         )}
-        <div style={{ fontSize: '11px', lineHeight: '1.4' }}>Near P.C Junction Areacode Road,Mukkam kozhikode</div>
-        <div style={{ fontSize: '11px', lineHeight: '1.4' }}>,kerala ,india</div>
+        <div style={{ fontSize: '11px', lineHeight: '1.4' }}>Near P.C Junction, Areacode Road, Mukkam</div>
+        <div style={{ fontSize: '11px', lineHeight: '1.4' }}>Kozhikode, Kerala, India</div>
         <div style={{ fontSize: '12px', fontWeight: 'bold', marginTop: '4px' }}>Contact : 9745298723</div>
       </div>
 
@@ -170,7 +170,7 @@ const PosBillingPage = ({ onLogout }) => {
   const [lastBillNo, setLastBillNo] = useState(null);
   const [showCheckoutDialog, setShowCheckoutDialog] = useState(false);
   
-  const [paymentMode, setPaymentMode] = useState('Cash');
+  const [paymentMode, setPaymentMode] = useState('UPI');
   const [splitAmounts, setSplitAmounts] = useState({ cash: '', card: '', upi: '' });
   const [discountType, setDiscountType] = useState('amount');
   const [discountValue, setDiscountValue] = useState(0);
@@ -391,6 +391,7 @@ const PosBillingPage = ({ onLogout }) => {
       setSplitAmounts({ cash: '', card: '', upi: '' });
       setDiscountValue(0);
       setDiscountType('amount');
+      setPaymentMode('UPI');
       // Sync global data in the background without blocking the dialog
       fetchGlobalData?.().catch(err => console.warn('Background sync error:', err));
     } catch (err) {
@@ -405,6 +406,7 @@ const PosBillingPage = ({ onLogout }) => {
     clearPosCart();
     setDiscountValue(0);
     setDiscountType('amount');
+    setPaymentMode('UPI');
   };
 
   const handlePrintAndCloseCheckoutDialog = () => {
@@ -413,6 +415,7 @@ const PosBillingPage = ({ onLogout }) => {
     clearPosCart();
     setDiscountValue(0);
     setDiscountType('amount');
+    setPaymentMode('UPI');
   };
 
   const handlePrintLastReceipt = () => {
@@ -489,6 +492,7 @@ const PosBillingPage = ({ onLogout }) => {
                 parkCart();
                 setDiscountValue(0);
                 setDiscountType('amount');
+                setPaymentMode('UPI');
               }}
               disabled={posCart.length === 0}
               className="btn btn-outline"
@@ -899,6 +903,7 @@ const PosBillingPage = ({ onLogout }) => {
                   setSplitAmounts({ cash: '', card: '', upi: '' });
                   setDiscountValue(0);
                   setDiscountType('amount');
+                  setPaymentMode('UPI');
                 }}
                 style={{ flex: 1, padding: '16px', border: '1px solid var(--error)', color: 'var(--error)', borderRadius: '8px', fontWeight: '600' }}
               >

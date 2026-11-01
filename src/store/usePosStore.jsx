@@ -243,7 +243,7 @@ export function PosStoreProvider({ children }) {
   }, []);
 
   // Checkout
-  const checkoutPos = useCallback(async (paymentMode = 'Cash', tax = 0, discount = 0) => {
+  const checkoutPos = useCallback(async (paymentMode = 'UPI', tax = 0, discount = 0) => {
     if (posCart.length === 0) throw new Error('Cart is empty');
     
     const subtotal = posCart.reduce((sum, item) => sum + item.subtotal, 0);
