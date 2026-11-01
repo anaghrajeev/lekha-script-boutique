@@ -174,20 +174,20 @@ const PosAnalyticsPage = ({ onLogout }) => {
       {/* KPI Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '24px', marginBottom: '32px' }}>
         <div style={{ padding: '24px', backgroundColor: 'var(--surface-container)', borderRadius: '12px', border: '1px solid var(--outline-variant)' }}>
-          <div style={{ color: 'var(--on-surface-variant)', marginBottom: '8px' }}>Net Revenue</div>
-          <div className="font-serif text-display-lg" style={{ fontSize: '32px' }}>₹{netRevenue.toFixed(2)}</div>
+          <div style={{ color: 'var(--on-surface-variant)', marginBottom: '8px', fontSize: '13px', fontWeight: '500' }}>Net Revenue</div>
+          <div style={{ fontSize: '30px', fontWeight: '700', fontFamily: 'var(--font-sans)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.5px' }}>₹{netRevenue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
         </div>
         <div style={{ padding: '24px', backgroundColor: 'var(--surface-container)', borderRadius: '12px', border: '1px solid var(--outline-variant)' }}>
-          <div style={{ color: 'var(--on-surface-variant)', marginBottom: '8px' }}>Gross Profit</div>
-          <div className="font-serif text-display-lg" style={{ fontSize: '32px', color: 'var(--primary)' }}>₹{grossProfit.toFixed(2)}</div>
+          <div style={{ color: 'var(--on-surface-variant)', marginBottom: '8px', fontSize: '13px', fontWeight: '500' }}>Gross Profit</div>
+          <div style={{ fontSize: '30px', fontWeight: '700', fontFamily: 'var(--font-sans)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.5px', color: 'var(--primary)' }}>₹{grossProfit.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
         </div>
         <div style={{ padding: '24px', backgroundColor: 'var(--surface-container)', borderRadius: '12px', border: '1px solid var(--outline-variant)' }}>
-          <div style={{ color: 'var(--on-surface-variant)', marginBottom: '8px' }}>Total Bills</div>
-          <div className="font-serif text-display-lg" style={{ fontSize: '32px' }}>{filteredBills.length}</div>
+          <div style={{ color: 'var(--on-surface-variant)', marginBottom: '8px', fontSize: '13px', fontWeight: '500' }}>Total Bills</div>
+          <div style={{ fontSize: '30px', fontWeight: '700', fontFamily: 'var(--font-sans)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.5px' }}>{filteredBills.length.toLocaleString('en-IN')}</div>
         </div>
         <div style={{ padding: '24px', backgroundColor: 'var(--surface-container)', borderRadius: '12px', border: '1px solid var(--outline-variant)' }}>
-          <div style={{ color: 'var(--on-surface-variant)', marginBottom: '8px' }}>Total Refunds</div>
-          <div className="font-serif text-display-lg" style={{ fontSize: '32px', color: 'var(--error)' }}>₹{returnedRevenue.toFixed(2)}</div>
+          <div style={{ color: 'var(--on-surface-variant)', marginBottom: '8px', fontSize: '13px', fontWeight: '500' }}>Total Refunds</div>
+          <div style={{ fontSize: '30px', fontWeight: '700', fontFamily: 'var(--font-sans)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.5px', color: 'var(--error)' }}>₹{returnedRevenue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
         </div>
       </div>
 

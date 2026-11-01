@@ -8,6 +8,133 @@ import { generateBatchNumber } from '../../lib/batchUtils.js';
 import { printThermalReceipt } from '../../lib/printReceipt.js';
 import { broadcastStockChange } from '../../lib/stockSync.js';
 
+function ReceiptTemplate({ data, settings }) {
+  if (!data) return null;
+  const items = data.items || [];
+  const timeDate = data.time ? new Date(data.time) : new Date();
+
+  return (
+    <div style={{
+      width: '66mm',
+      maxWidth: '100%',
+      margin: '0 auto',
+      boxSizing: 'border-box',
+      fontFamily: 'Arial, Helvetica, sans-serif',
+      fontSize: '11.5px',
+      fontWeight: 'bold',
+      lineHeight: '1.35',
+      color: '#000000',
+      backgroundColor: '#ffffff',
+      padding: '2mm 3mm 2mm 1mm'
+    }}>
+      {/* Header */}
+      <div style={{ textAlign: 'center', marginBottom: '10px' }}>
+        <div style={{ fontSize: '12px', marginBottom: '5px', textTransform: 'uppercase' }}>Sales Invoice</div>
+        {settings?.logoUrl ? (
+          <img src={settings.logoUrl} alt="Store Logo" style={{ maxHeight: '60px', margin: '0 auto 8px auto', display: 'block' }} />
+        ) : (
+          <h1 style={{ fontFamily: '"Brush Script MT", "Pacifico", cursive', fontSize: '36px', margin: '0', lineHeight: '1', fontWeight: 'normal', color: '#000000' }}>
+            Lekha Script
+          </h1>
+        )}
+        <div style={{ fontSize: '11px', lineHeight: '1.4' }}>Near P.C Junction Areacode Road,Mukkam kozhikode</div>
+        <div style={{ fontSize: '11px', lineHeight: '1.4' }}>,kerala ,india</div>
+        <div style={{ fontSize: '12px', fontWeight: 'bold', marginTop: '4px' }}>Contact : 9745298723</div>
+      </div>
+
+      {/* Separator */}
+      <div style={{ borderBottom: '1px dashed #000', margin: '10px 0' }}></div>
+
+      {/* Meta Info */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '4px' }}>
+        <div><b>Inv No :</b> {data.billNo}</div>
+        <div><b>Date :</b> {timeDate.toLocaleDateString('en-GB').replace(/\//g, '-')}</div>
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '10px' }}>
+        <div><b>Customer Name :</b> {data.customerInfo?.name || 'Walkin Customer'}</div>
+        <div><b>Time :</b> {timeDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true })}</div>
+      </div>
+
+      {/* Separator */}
+      <div style={{ borderBottom: '1px solid #000', margin: '5px 0' }}></div>
+
+      {/* Table */}
+      <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse', color: '#000000' }}>
+        <thead>
+          <tr>
+            <th style={{ textAlign: 'left', paddingBottom: '4px', width: '42%' }}>Product</th>
+            <th style={{ textAlign: 'center', paddingBottom: '4px', width: '14%' }}>Size</th>
+            <th style={{ textAlign: 'right', paddingBottom: '4px', width: '16%' }}>Rate</th>
+            <th style={{ textAlign: 'center', paddingBottom: '4px', width: '12%' }}>Qty</th>
+            <th style={{ textAlign: 'right', paddingBottom: '4px', width: '16%' }}>Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td colSpan="5">
+              <div style={{ borderBottom: '1px dashed #000', marginBottom: '4px' }}></div>
+            </td>
+          </tr>
+          {items.map((i, idx) => {
+            const prodLabel = `${i.model || ''}-${i.category || ''}`.toUpperCase().replace(/^-|-$/, '') || (i.name || i.custom_name || 'Unknown').toUpperCase();
+            return (
+              <tr key={i.key || idx}>
+                <td style={{ textAlign: 'left', paddingBottom: '4px', width: '42%', wordBreak: 'break-word' }}>{prodLabel}</td>
+                <td style={{ textAlign: 'center', paddingBottom: '4px', width: '14%' }}>{i.size || '-'}</td>
+                <td style={{ textAlign: 'right', paddingBottom: '4px', width: '16%' }}>{Number(i.unit_price || 0).toFixed(2)}</td>
+                <td style={{ textAlign: 'center', paddingBottom: '4px', width: '12%', whiteSpace: 'nowrap' }}>{i.quantity}</td>
+                <td style={{ textAlign: 'right', paddingBottom: '4px', width: '16%' }}>{Number(i.subtotal || 0).toFixed(2)}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+
+      {/* Separator */}
+      <div style={{ borderBottom: '1px solid #000', margin: '5px 0' }}></div>
+
+      {/* Totals */}
+      <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse', color: '#000000' }}>
+        <tbody>
+          <tr>
+            <td style={{ paddingBottom: '4px', width: '45%', verticalAlign: 'top' }}>
+              <div style={{ marginBottom: '8px' }}><b>Items :</b> {items.reduce((sum, i) => sum + (Number(i.quantity) || 0), 0)}</div>
+              <div><b>Pay Mode :</b> {data.paymentMode}</div>
+            </td>
+            <td style={{ textAlign: 'left', paddingBottom: '4px', borderLeft: '1px solid #000', paddingLeft: '8px', width: '35%' }}><b>Grand Total</b></td>
+            <td style={{ textAlign: 'right', paddingBottom: '4px', width: '20%' }}>{Number(data.subtotal || 0).toFixed(2)}</td>
+          </tr>
+          {settings?.enableGst && (
+            <tr>
+              <td style={{ paddingBottom: '4px' }}></td>
+              <td style={{ textAlign: 'left', paddingBottom: '4px', borderLeft: '1px solid #000', paddingLeft: '8px' }}><b>GST ({settings.gstPercentage}%)</b></td>
+              <td style={{ textAlign: 'right', paddingBottom: '4px' }}>{Number(data.tax || 0).toFixed(2)}</td>
+            </tr>
+          )}
+          <tr>
+            <td style={{ paddingBottom: '4px' }}></td>
+            <td style={{ textAlign: 'left', paddingBottom: '4px', borderLeft: '1px solid #000', paddingLeft: '8px' }}><b>Bill Discount</b></td>
+            <td style={{ textAlign: 'right', paddingBottom: '4px' }}>{Number(data.discount || 0).toFixed(2)}</td>
+          </tr>
+          <tr>
+            <td style={{ paddingBottom: '4px' }}></td>
+            <td style={{ textAlign: 'left', paddingBottom: '4px', borderLeft: '1px solid #000', paddingLeft: '8px' }}><b>Net Total</b></td>
+            <td style={{ textAlign: 'right', paddingBottom: '4px', fontWeight: 'bold', fontSize: '14px' }}>{Number(data.total || 0).toFixed(2)}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      {/* Separator */}
+      <div style={{ borderBottom: '1px solid #000', margin: '5px 0' }}></div>
+
+      {/* Footer */}
+      <div style={{ textAlign: 'center', marginTop: '15px' }}>
+        <div style={{ fontSize: '13px', fontWeight: 'bold', fontStyle: 'italic', marginTop: '5px' }}>Thank You... Visit Again !</div>
+      </div>
+    </div>
+  );
+}
+
 const PosBillingPage = ({ onLogout }) => {
   const { 
     batches, 
@@ -258,11 +385,28 @@ const PosBillingPage = ({ onLogout }) => {
       setLastBillNo(res.billNo);
       setShowCheckoutDialog(true);
       setSplitAmounts({ cash: '', card: '', upi: '' });
+      setDiscountValue(0);
+      setDiscountType('amount');
     } catch (err) {
       toast.error('Checkout failed: ' + err.message);
     } finally {
       setCheckoutLoading(false);
     }
+  };
+
+  const handleCloseCheckoutDialog = () => {
+    setShowCheckoutDialog(false);
+    clearPosCart();
+    setDiscountValue(0);
+    setDiscountType('amount');
+  };
+
+  const handlePrintAndCloseCheckoutDialog = () => {
+    printThermalReceipt('print-receipt');
+    setShowCheckoutDialog(false);
+    clearPosCart();
+    setDiscountValue(0);
+    setDiscountType('amount');
   };
 
   const handlePrintLastReceipt = () => {
@@ -335,7 +479,11 @@ const PosBillingPage = ({ onLogout }) => {
               Add Custom Item
             </button>
             <button 
-              onClick={() => parkCart()}
+              onClick={() => {
+                parkCart();
+                setDiscountValue(0);
+                setDiscountType('amount');
+              }}
               disabled={posCart.length === 0}
               className="btn btn-outline"
               style={{ padding: '8px 12px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}
@@ -582,7 +730,8 @@ const PosBillingPage = ({ onLogout }) => {
                   type="number" 
                   min="0"
                   max={discountType === 'percentage' ? 100 : undefined}
-                  value={discountValue}
+                  value={discountValue === 0 ? '' : discountValue}
+                  placeholder="0"
                   onChange={(e) => setDiscountValue(parseFloat(e.target.value) || 0)}
                   style={{ width: '80px', padding: '6px', textAlign: 'right', borderRadius: '4px', border: '1px solid var(--outline)' }}
                 />
@@ -742,6 +891,8 @@ const PosBillingPage = ({ onLogout }) => {
                 onClick={() => {
                   clearPosCart();
                   setSplitAmounts({ cash: '', card: '', upi: '' });
+                  setDiscountValue(0);
+                  setDiscountType('amount');
                 }}
                 style={{ flex: 1, padding: '16px', border: '1px solid var(--error)', color: 'var(--error)', borderRadius: '8px', fontWeight: '600' }}
               >
@@ -818,9 +969,9 @@ const PosBillingPage = ({ onLogout }) => {
 
       {/* Hidden Print Receipt Template */}
       <div id="print-receipt" className="receipt-container" style={{ display: 'none', width: '66mm', padding: '2mm 3mm 2mm 1mm', boxSizing: 'border-box' }}>
-        {(() => {
-          const pData = lastBillData || {
-            billNo: 'SINV-0000',
+        <ReceiptTemplate 
+          data={lastBillData || {
+            billNo: lastBillNo || 'SINV-0000',
             items: posCart,
             customerInfo,
             subtotal: cartSubtotal,
@@ -829,151 +980,110 @@ const PosBillingPage = ({ onLogout }) => {
             total: cartTotal,
             paymentMode,
             time: new Date()
-          };
-          return (
-            <>
-              {/* Header */}
-              <div style={{ textAlign: 'center', marginBottom: '10px' }}>
-                <div style={{ fontSize: '12px', marginBottom: '5px', textTransform: 'uppercase' }}>Sales Invoice</div>
-                {settings?.logoUrl ? (
-                  <img src={settings.logoUrl} alt="Store Logo" style={{ maxHeight: '60px', margin: '0 auto 8px auto', display: 'block' }} />
-                ) : (
-                  <h1 style={{ fontFamily: '"Brush Script MT", "Pacifico", cursive', fontSize: '36px', margin: '0', lineHeight: '1', fontWeight: 'normal' }}>Lekha Script</h1>
-                )}
-                <div style={{ fontSize: '11px', lineHeight: '1.4' }}>Near P.C Junction Areacode Road,Mukkam kozhikode</div>
-                <div style={{ fontSize: '11px', lineHeight: '1.4' }}>,kerala ,india</div>
-                <div style={{ fontSize: '12px', fontWeight: 'bold', marginTop: '4px' }}>Contact : 9745298723</div>
-              </div>
-
-              {/* Separator */}
-              <div style={{ borderBottom: '1px dashed #000', margin: '10px 0' }}></div>
-
-              {/* Meta Info */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '4px' }}>
-                <div><b>Inv No :</b> {pData.billNo}</div>
-                <div><b>Date :</b> {new Date(pData.time).toLocaleDateString('en-GB').replace(/\//g, '-')}</div>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '10px' }}>
-                <div><b>Customer Name :</b> {pData.customerInfo.name || 'Walkin Customer'}</div>
-                <div><b>Time :</b> {new Date(pData.time).toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true })}</div>
-              </div>
-
-              {/* Separator */}
-              <div style={{ borderBottom: '1px solid #000', margin: '5px 0' }}></div>
-
-              {/* Table */}
-              <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr>
-                    <th style={{ textAlign: 'left', paddingBottom: '4px', width: '42%' }}>Product</th>
-                    <th style={{ textAlign: 'center', paddingBottom: '4px', width: '14%' }}>Size</th>
-                    <th style={{ textAlign: 'right', paddingBottom: '4px', width: '16%' }}>Rate</th>
-                    <th style={{ textAlign: 'center', paddingBottom: '4px', width: '12%' }}>Qty</th>
-                    <th style={{ textAlign: 'right', paddingBottom: '4px', width: '16%' }}>Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td colSpan="5">
-                      <div style={{ borderBottom: '1px dashed #000', marginBottom: '4px' }}></div>
-                    </td>
-                  </tr>
-                  {pData.items.map((i, idx) => (
-                    <tr key={i.key || idx}>
-                      <td style={{ textAlign: 'left', paddingBottom: '4px', width: '42%', wordBreak: 'break-word' }}>{`${i.model || ''}-${i.category || ''}`.toUpperCase().replace(/^-|-$/, '') || (i.name || i.custom_name || 'Unknown').toUpperCase()}</td>
-                      <td style={{ textAlign: 'center', paddingBottom: '4px', width: '14%' }}>{i.size || '-'}</td>
-                      <td style={{ textAlign: 'right', paddingBottom: '4px', width: '16%' }}>{i.unit_price.toFixed(2)}</td>
-                      <td style={{ textAlign: 'center', paddingBottom: '4px', width: '12%', whiteSpace: 'nowrap' }}>{i.quantity}</td>
-                      <td style={{ textAlign: 'right', paddingBottom: '4px', width: '16%' }}>{i.subtotal.toFixed(2)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-
-              {/* Separator */}
-              <div style={{ borderBottom: '1px solid #000', margin: '5px 0' }}></div>
-
-              {/* Totals */}
-              <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse' }}>
-                <tbody>
-                    <tr>
-                      <td style={{ paddingBottom: '4px', width: '45%', verticalAlign: 'top' }}>
-                        <div style={{ marginBottom: '8px' }}><b>Items :</b> {pData.items.reduce((sum, i) => sum + i.quantity, 0)}</div>
-                        <div><b>Pay Mode :</b> {pData.paymentMode}</div>
-                      </td>
-                      <td style={{ textAlign: 'left', paddingBottom: '4px', borderLeft: '1px solid #000', paddingLeft: '8px', width: '35%' }}><b>Grand Total</b></td>
-                      <td style={{ textAlign: 'right', paddingBottom: '4px', width: '20%' }}>{pData.subtotal.toFixed(2)}</td>
-                    </tr>
-                  {settings?.enableGst && (
-                    <tr>
-                      <td style={{ paddingBottom: '4px' }}></td>
-                      <td style={{ textAlign: 'left', paddingBottom: '4px', borderLeft: '1px solid #000', paddingLeft: '8px' }}><b>GST ({settings.gstPercentage}%)</b></td>
-                      <td style={{ textAlign: 'right', paddingBottom: '4px' }}>{pData.tax.toFixed(2)}</td>
-
-              </tr>
-            )}
-            <tr>
-              <td style={{ paddingBottom: '4px' }}></td>
-              <td style={{ textAlign: 'left', paddingBottom: '4px', borderLeft: '1px solid #000', paddingLeft: '8px' }}><b>Bill Discount</b></td>
-              <td style={{ textAlign: 'right', paddingBottom: '4px' }}>{pData.discount.toFixed(2)}</td>
-            </tr>
-            <tr>
-              <td style={{ paddingBottom: '4px' }}></td>
-              <td style={{ textAlign: 'left', paddingBottom: '4px', borderLeft: '1px solid #000', paddingLeft: '8px' }}><b>Net Total</b></td>
-              <td style={{ textAlign: 'right', paddingBottom: '4px', fontWeight: 'bold', fontSize: '14px' }}>{pData.total.toFixed(2)}</td>
-            </tr>
-          </tbody>
-        </table>
-
-        {/* Separator */}
-        <div style={{ borderBottom: '1px solid #000', margin: '5px 0' }}></div>
-
-        {/* Footer */}
-        <div style={{ textAlign: 'center', marginTop: '15px' }}>
-          <div style={{ fontSize: '13px', fontWeight: 'bold', fontStyle: 'italic', marginTop: '5px' }}>Thank You... Visit Again !</div>
-        </div>
-        </>
-        );
-        })()}
+          }} 
+          settings={settings} 
+        />
       </div>
 
       {showCheckoutDialog && (
         <div className="no-print" style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 9999,
-          display: 'flex', alignItems: 'center', justifyContent: 'center'
+          position: 'fixed', inset: 0,
+          backgroundColor: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(3px)', zIndex: 9999,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px'
         }}>
           <div style={{
-            backgroundColor: 'var(--surface-container-high)', padding: '32px', borderRadius: '16px',
-            textAlign: 'center', minWidth: '300px', boxShadow: '0 4px 20px rgba(0,0,0,0.2)'
+            backgroundColor: 'var(--surface-container-high)', borderRadius: '16px',
+            width: '100%', maxWidth: '440px', maxHeight: '92vh', display: 'flex', flexDirection: 'column',
+            boxShadow: '0 16px 48px rgba(0,0,0,0.35)', border: '1px solid var(--outline-variant)', overflow: 'hidden'
           }}>
-            <h2 className="font-serif" style={{ marginBottom: '16px', fontSize: '24px', color: 'var(--primary)' }}>Checkout Completed</h2>
-            <p style={{ marginBottom: '24px', color: 'var(--on-surface-variant)' }}>Bill No: {lastBillNo}</p>
-            
-            <div style={{ display: 'flex', gap: '16px', justifyContent: 'center' }}>
+            {/* Modal Header */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '16px 20px', borderBottom: '1px solid var(--outline-variant)',
+              backgroundColor: 'var(--surface-container)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span className="material-symbols-outlined" style={{ fontSize: '28px', color: '#16a34a' }}>check_circle</span>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '700', color: 'var(--on-surface)' }}>Checkout Completed</h3>
+                  <div style={{ fontSize: '12px', color: 'var(--on-surface-variant)', marginTop: '2px' }}>
+                    Bill No: <span style={{ fontFamily: 'monospace', fontWeight: '700', color: 'var(--primary)', backgroundColor: 'var(--surface)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--outline-variant)' }}>{lastBillNo || (lastBillData?.billNo) || 'SINV-0000'}</span>
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={handleCloseCheckoutDialog}
+                className="btn btn-icon"
+                style={{ color: 'var(--on-surface-variant)', padding: '6px' }}
+                title="Close"
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>close</span>
+              </button>
+            </div>
+
+            {/* Modal Body: Receipt Preview */}
+            <div style={{
+              flex: 1, overflowY: 'auto', padding: '16px',
+              backgroundColor: 'var(--surface-container-lowest)'
+            }}>
+              <div style={{
+                fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px',
+                fontWeight: '600', color: 'var(--on-surface-variant)', marginBottom: '8px',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+              }}>
+                <span>Bill Print Preview</span>
+                <span style={{ fontSize: '10px', color: 'var(--on-surface-variant)' }}>Thermal 66mm</span>
+              </div>
+              <div style={{
+                backgroundColor: '#ffffff',
+                borderRadius: '8px',
+                border: '1px solid #d1d5db',
+                boxShadow: '0 2px 10px rgba(0,0,0,0.06)',
+                padding: '14px 10px'
+              }}>
+                <ReceiptTemplate 
+                  data={lastBillData || {
+                    billNo: lastBillNo || 'SINV-0000',
+                    items: posCart,
+                    customerInfo,
+                    subtotal: cartSubtotal,
+                    tax: gstAmount,
+                    discount: computedDiscountAmount,
+                    total: cartTotal,
+                    paymentMode,
+                    time: new Date()
+                  }} 
+                  settings={settings} 
+                />
+              </div>
+            </div>
+
+            {/* Modal Footer: Action Buttons */}
+            <div style={{
+              display: 'flex', gap: '12px', padding: '16px 20px',
+              borderTop: '1px solid var(--outline-variant)',
+              backgroundColor: 'var(--surface-container)'
+            }}>
               <button 
-                onClick={() => {
-                  setShowCheckoutDialog(false);
-                  clearPosCart();
-                }}
+                onClick={handleCloseCheckoutDialog}
                 style={{
-                  padding: '12px 24px', border: '1px solid var(--outline)', borderRadius: '8px',
-                  fontWeight: '600', backgroundColor: 'var(--surface)', color: 'var(--on-surface)'
+                  flex: 1, padding: '12px 16px', border: '1px solid var(--outline)', borderRadius: '8px',
+                  fontWeight: '600', backgroundColor: 'var(--surface)', color: 'var(--on-surface)',
+                  cursor: 'pointer', fontSize: '14px'
                 }}
               >
                 Close
               </button>
               <button 
-                onClick={() => {
-                  printThermalReceipt('print-receipt');
-                  setShowCheckoutDialog(false);
-                  clearPosCart();
-                }}
+                onClick={handlePrintAndCloseCheckoutDialog}
                 style={{
-                  padding: '12px 24px', backgroundColor: 'var(--primary)', color: 'white',
-                  borderRadius: '8px', fontWeight: '600'
+                  flex: 1.3, padding: '12px 16px', backgroundColor: 'var(--primary)', color: 'white',
+                  borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '14px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                  boxShadow: '0 2px 8px rgba(122,53,128,0.3)'
                 }}
               >
+                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>print</span>
                 Print Receipt
               </button>
             </div>
