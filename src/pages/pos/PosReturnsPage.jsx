@@ -391,13 +391,17 @@ const PosReturnsPage = ({ onLogout }) => {
           <div style={{ borderBottom: '1px dashed #000', margin: '10px 0' }}></div>
 
           {/* Meta Info */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '4px' }}>
-            <div><b>Inv No :</b> {selectedBill.bill_no}</div>
-            <div><b>Date :</b> {new Date(selectedBill.bill_date).toLocaleDateString('en-GB').replace(/\//g, '-')}</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', marginBottom: '4px' }}>
+            <div style={{ whiteSpace: 'nowrap' }}><b>Inv No :</b> {selectedBill.bill_no}</div>
+            <div style={{ whiteSpace: 'nowrap' }}><b>Date :</b> {new Date(selectedBill.bill_date).toLocaleDateString('en-GB').replace(/\//g, '-')}</div>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '10px' }}>
-            <div><b>Customer Name :</b> {selectedBill.customer_name || 'Walkin Customer'}</div>
-            <div><b>Time :</b> {new Date(selectedBill.bill_date).toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true })}</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', marginBottom: '10px' }}>
+            <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '62%' }}>
+              <b>Customer :</b> {selectedBill.customer_name?.trim() || 'Walk-in'}
+            </div>
+            <div style={{ whiteSpace: 'nowrap' }}>
+              <b>Time :</b> {new Date(selectedBill.bill_date).toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true })}
+            </div>
           </div>
 
           {/* Separator */}

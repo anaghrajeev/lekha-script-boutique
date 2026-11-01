@@ -46,13 +46,17 @@ function ReceiptTemplate({ data, settings }) {
       <div style={{ borderBottom: '1px dashed #000', margin: '10px 0' }}></div>
 
       {/* Meta Info */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '4px' }}>
-        <div><b>Inv No :</b> {data.billNo}</div>
-        <div><b>Date :</b> {timeDate.toLocaleDateString('en-GB').replace(/\//g, '-')}</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', marginBottom: '4px' }}>
+        <div style={{ whiteSpace: 'nowrap' }}><b>Inv No :</b> {data.billNo}</div>
+        <div style={{ whiteSpace: 'nowrap' }}><b>Date :</b> {timeDate.toLocaleDateString('en-GB').replace(/\//g, '-')}</div>
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '10px' }}>
-        <div><b>Customer Name :</b> {data.customerInfo?.name || 'Walkin Customer'}</div>
-        <div><b>Time :</b> {timeDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true })}</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', marginBottom: '10px' }}>
+        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '62%' }}>
+          <b>Customer :</b> {data.customerInfo?.name?.trim() || 'Walk-in'}
+        </div>
+        <div style={{ whiteSpace: 'nowrap' }}>
+          <b>Time :</b> {timeDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true })}
+        </div>
       </div>
 
       {/* Separator */}
@@ -381,12 +385,14 @@ const PosBillingPage = ({ onLogout }) => {
     setCheckoutLoading(true);
     try {
       const res = await checkoutPos(effectivePaymentMode, gstAmount, computedDiscountAmount);
-      await fetchGlobalData(); // Refresh global Admin inventory
+      // Immediately display dialog and reset checkout fields with zero delay
       setLastBillNo(res.billNo);
       setShowCheckoutDialog(true);
       setSplitAmounts({ cash: '', card: '', upi: '' });
       setDiscountValue(0);
       setDiscountType('amount');
+      // Sync global data in the background without blocking the dialog
+      fetchGlobalData?.().catch(err => console.warn('Background sync error:', err));
     } catch (err) {
       toast.error('Checkout failed: ' + err.message);
     } finally {

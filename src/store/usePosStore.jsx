@@ -286,7 +286,25 @@ export function PosStoreProvider({ children }) {
         time: new Date()
       });
 
-      fetchPosData(); // Refresh batches
+      // Optimistically decrement sold batch quantities in memory right away so stock adjusts with 0ms lag
+      setBatches(prev => {
+        const soldBatchMap = new Map();
+        posCart.forEach(item => {
+          if (item.batch_id) {
+            soldBatchMap.set(item.batch_id, (soldBatchMap.get(item.batch_id) || 0) + item.quantity);
+          }
+        });
+        if (soldBatchMap.size === 0) return prev;
+        return prev.map(b => {
+          if (soldBatchMap.has(b.id)) {
+            return { ...b, quantity: Math.max(0, (Number(b.quantity) || 0) - soldBatchMap.get(b.id)) };
+          }
+          return b;
+        });
+      });
+
+      // Background silent sync
+      fetchPosData().catch(err => console.warn('Background POS fetch error:', err));
       broadcastStockChange('CHECKOUT', { billNo: data.bill_no, billId: data.bill_id });
       return { success: true, billId: data.bill_id, billNo: data.bill_no };
     } catch (err) {
