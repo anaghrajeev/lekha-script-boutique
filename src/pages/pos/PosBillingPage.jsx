@@ -15,43 +15,43 @@ function ReceiptTemplate({ data, settings }) {
 
   return (
     <div style={{
-      width: '66mm',
+      width: '72mm',
       maxWidth: '100%',
       margin: '0 auto',
       boxSizing: 'border-box',
       fontFamily: 'Arial, Helvetica, sans-serif',
-      fontSize: '11.5px',
+      fontSize: '12px',
       fontWeight: 'bold',
       lineHeight: '1.35',
       color: '#000000',
       backgroundColor: '#ffffff',
-      padding: '2mm 3mm 2mm 1mm'
+      padding: '2mm 2mm'
     }}>
       {/* Header */}
       <div style={{ textAlign: 'center', marginBottom: '10px' }}>
-        <div style={{ fontSize: '12px', marginBottom: '5px', textTransform: 'uppercase' }}>Sales Invoice</div>
+        <div style={{ fontSize: '12.5px', marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Sales Invoice</div>
         {settings?.logoUrl ? (
-          <img src={settings.logoUrl} alt="Store Logo" style={{ maxHeight: '60px', margin: '0 auto 8px auto', display: 'block' }} />
+          <img src={settings.logoUrl} alt="Store Logo" style={{ maxHeight: '65px', margin: '0 auto 8px auto', display: 'block' }} />
         ) : (
-          <h1 style={{ fontFamily: '"Brush Script MT", "Pacifico", cursive', fontSize: '36px', margin: '0', lineHeight: '1', fontWeight: 'normal', color: '#000000' }}>
+          <h1 style={{ fontFamily: '"Brush Script MT", "Pacifico", cursive', fontSize: '38px', margin: '0', lineHeight: '1', fontWeight: 'normal', color: '#000000' }}>
             Lekha Script
           </h1>
         )}
-        <div style={{ fontSize: '11px', lineHeight: '1.4' }}>Near P.C Junction, Areacode Road, Mukkam</div>
-        <div style={{ fontSize: '11px', lineHeight: '1.4' }}>Kozhikode, Kerala, India</div>
-        <div style={{ fontSize: '12px', fontWeight: 'bold', marginTop: '4px' }}>Contact : 9745298723</div>
+        <div style={{ fontSize: '11.5px', lineHeight: '1.4' }}>Near P.C Junction, Areacode Road, Mukkam</div>
+        <div style={{ fontSize: '11.5px', lineHeight: '1.4' }}>Kozhikode, Kerala, India</div>
+        <div style={{ fontSize: '12.5px', fontWeight: 'bold', marginTop: '4px' }}>Contact : 9745298723</div>
       </div>
 
       {/* Separator */}
       <div style={{ borderBottom: '1px dashed #000', margin: '10px 0' }}></div>
 
       {/* Meta Info */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', marginBottom: '4px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11.5px', marginBottom: '4px' }}>
         <div style={{ whiteSpace: 'nowrap' }}><b>Inv No :</b> {data.billNo}</div>
         <div style={{ whiteSpace: 'nowrap' }}><b>Date :</b> {timeDate.toLocaleDateString('en-GB').replace(/\//g, '-')}</div>
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', marginBottom: '10px' }}>
-        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '62%' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11.5px', marginBottom: '10px' }}>
+        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '65%' }}>
           <b>Customer :</b> {data.customerInfo?.name?.trim() || 'Walk-in'}
         </div>
         <div style={{ whiteSpace: 'nowrap' }}>
@@ -63,13 +63,13 @@ function ReceiptTemplate({ data, settings }) {
       <div style={{ borderBottom: '1px solid #000', margin: '5px 0' }}></div>
 
       {/* Table */}
-      <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse', color: '#000000' }}>
+      <table style={{ width: '100%', fontSize: '11.5px', borderCollapse: 'collapse', color: '#000000' }}>
         <thead>
           <tr>
-            <th style={{ textAlign: 'left', paddingBottom: '4px', width: '42%' }}>Product</th>
-            <th style={{ textAlign: 'center', paddingBottom: '4px', width: '14%' }}>Size</th>
-            <th style={{ textAlign: 'right', paddingBottom: '4px', width: '16%' }}>Rate</th>
-            <th style={{ textAlign: 'center', paddingBottom: '4px', width: '12%' }}>Qty</th>
+            <th style={{ textAlign: 'left', paddingBottom: '4px', width: '46%' }}>Product</th>
+            <th style={{ textAlign: 'center', paddingBottom: '4px', width: '13%' }}>Size</th>
+            <th style={{ textAlign: 'right', paddingBottom: '4px', width: '14%' }}>Rate</th>
+            <th style={{ textAlign: 'center', paddingBottom: '4px', width: '11%' }}>Qty</th>
             <th style={{ textAlign: 'right', paddingBottom: '4px', width: '16%' }}>Amount</th>
           </tr>
         </thead>
@@ -83,10 +83,10 @@ function ReceiptTemplate({ data, settings }) {
             const prodLabel = `${i.model || ''}-${i.category || ''}`.toUpperCase().replace(/^-|-$/, '') || (i.name || i.custom_name || 'Unknown').toUpperCase();
             return (
               <tr key={i.key || idx}>
-                <td style={{ textAlign: 'left', paddingBottom: '4px', width: '42%', wordBreak: 'break-word' }}>{prodLabel}</td>
-                <td style={{ textAlign: 'center', paddingBottom: '4px', width: '14%' }}>{i.size || '-'}</td>
-                <td style={{ textAlign: 'right', paddingBottom: '4px', width: '16%' }}>{Number(i.unit_price || 0).toFixed(2)}</td>
-                <td style={{ textAlign: 'center', paddingBottom: '4px', width: '12%', whiteSpace: 'nowrap' }}>{i.quantity}</td>
+                <td style={{ textAlign: 'left', paddingBottom: '4px', width: '46%', wordBreak: 'break-word' }}>{prodLabel}</td>
+                <td style={{ textAlign: 'center', paddingBottom: '4px', width: '13%' }}>{i.size || '-'}</td>
+                <td style={{ textAlign: 'right', paddingBottom: '4px', width: '14%' }}>{Number(i.unit_price || 0).toFixed(2)}</td>
+                <td style={{ textAlign: 'center', paddingBottom: '4px', width: '11%', whiteSpace: 'nowrap' }}>{i.quantity}</td>
                 <td style={{ textAlign: 'right', paddingBottom: '4px', width: '16%' }}>{Number(i.subtotal || 0).toFixed(2)}</td>
               </tr>
             );
@@ -98,14 +98,14 @@ function ReceiptTemplate({ data, settings }) {
       <div style={{ borderBottom: '1px solid #000', margin: '5px 0' }}></div>
 
       {/* Totals */}
-      <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse', color: '#000000' }}>
+      <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse', color: '#000000' }}>
         <tbody>
           <tr>
-            <td style={{ paddingBottom: '4px', width: '45%', verticalAlign: 'top' }}>
+            <td style={{ paddingBottom: '4px', width: '46%', verticalAlign: 'top' }}>
               <div style={{ marginBottom: '8px' }}><b>Items :</b> {items.reduce((sum, i) => sum + (Number(i.quantity) || 0), 0)}</div>
               <div><b>Pay Mode :</b> {data.paymentMode}</div>
             </td>
-            <td style={{ textAlign: 'left', paddingBottom: '4px', borderLeft: '1px solid #000', paddingLeft: '8px', width: '35%' }}><b>Grand Total</b></td>
+            <td style={{ textAlign: 'left', paddingBottom: '4px', borderLeft: '1px solid #000', paddingLeft: '8px', width: '34%' }}><b>Grand Total</b></td>
             <td style={{ textAlign: 'right', paddingBottom: '4px', width: '20%' }}>{Number(data.subtotal || 0).toFixed(2)}</td>
           </tr>
           {settings?.enableGst && (
@@ -123,7 +123,7 @@ function ReceiptTemplate({ data, settings }) {
           <tr>
             <td style={{ paddingBottom: '4px' }}></td>
             <td style={{ textAlign: 'left', paddingBottom: '4px', borderLeft: '1px solid #000', paddingLeft: '8px' }}><b>Net Total</b></td>
-            <td style={{ textAlign: 'right', paddingBottom: '4px', fontWeight: 'bold', fontSize: '14px' }}>{Number(data.total || 0).toFixed(2)}</td>
+            <td style={{ textAlign: 'right', paddingBottom: '4px', fontWeight: 'bold', fontSize: '14.5px' }}>{Number(data.total || 0).toFixed(2)}</td>
           </tr>
         </tbody>
       </table>
@@ -1033,7 +1033,7 @@ const PosBillingPage = ({ onLogout }) => {
       )}
 
       {/* Hidden Print Receipt Template */}
-      <div id="print-receipt" className="receipt-container" style={{ display: 'none', width: '66mm', padding: '2mm 3mm 2mm 1mm', boxSizing: 'border-box' }}>
+      <div id="print-receipt" className="receipt-container" style={{ display: 'none', width: '72mm', padding: '2mm', boxSizing: 'border-box' }}>
         <ReceiptTemplate 
           data={lastBillData || {
             billNo: lastBillNo || 'SINV-0000',
@@ -1058,7 +1058,7 @@ const PosBillingPage = ({ onLogout }) => {
         }}>
           <div style={{
             backgroundColor: 'var(--surface-container-high)', borderRadius: '16px',
-            width: '100%', maxWidth: '440px', maxHeight: '92vh', display: 'flex', flexDirection: 'column',
+            width: '100%', maxWidth: '460px', maxHeight: '92vh', display: 'flex', flexDirection: 'column',
             boxShadow: '0 16px 48px rgba(0,0,0,0.35)', border: '1px solid var(--outline-variant)', overflow: 'hidden'
           }}>
             {/* Modal Header */}
@@ -1097,7 +1097,7 @@ const PosBillingPage = ({ onLogout }) => {
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between'
               }}>
                 <span>Bill Print Preview</span>
-                <span style={{ fontSize: '10px', color: 'var(--on-surface-variant)' }}>Thermal 66mm</span>
+                <span style={{ fontSize: '10px', color: 'var(--on-surface-variant)' }}>Thermal 79mm Roll (72mm Print)</span>
               </div>
               <div style={{
                 backgroundColor: '#ffffff',

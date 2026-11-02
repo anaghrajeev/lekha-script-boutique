@@ -59,19 +59,19 @@ export const printThermalReceipt = (elementId = 'print-receipt') => {
           }
           body {
             box-sizing: border-box !important;
-            width: 66mm;
-            max-width: 66mm;
-            margin: 0 0 0 1mm;
-            padding: 2mm 3mm 2mm 1mm;
+            width: 72mm;
+            max-width: 72mm;
+            margin: 0 auto;
+            padding: 2mm 2mm 2mm 2mm;
             font-family: Arial, Helvetica, sans-serif;
-            font-size: 11.5px;
+            font-size: 12px;
             font-weight: 700;
             line-height: 1.35;
           }
           table {
             width: 100% !important;
             border-collapse: collapse !important;
-            font-size: 11px !important;
+            font-size: 11.5px !important;
             font-weight: 700 !important;
           }
           th, td {

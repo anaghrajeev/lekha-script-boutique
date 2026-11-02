@@ -371,32 +371,32 @@ const PosReturnsPage = ({ onLogout }) => {
 
       {/* Hidden Print Receipt Template */}
       {selectedBill && (
-        <div id="print-receipt" className="receipt-container" style={{ display: 'none', width: '66mm', padding: '2mm 3mm 2mm 1mm', boxSizing: 'border-box' }}>
+        <div id="print-receipt" className="receipt-container" style={{ display: 'none', width: '72mm', padding: '2mm', boxSizing: 'border-box' }}>
           {/* Header */}
           <div style={{ textAlign: 'center', marginBottom: '10px' }}>
-            <div style={{ fontSize: '12px', marginBottom: '5px', textTransform: 'uppercase' }}>
+            <div style={{ fontSize: '12.5px', marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
               {selectedBill.status === 'returned' || selectedBill.status === 'partial_return' ? 'Return / Sales Invoice' : 'Sales Invoice'}
             </div>
             {settings?.logoUrl ? (
-              <img src={settings.logoUrl} alt="Store Logo" style={{ maxHeight: '60px', margin: '0 auto 8px auto', display: 'block' }} />
+              <img src={settings.logoUrl} alt="Store Logo" style={{ maxHeight: '65px', margin: '0 auto 8px auto', display: 'block' }} />
             ) : (
-              <h1 style={{ fontFamily: '"Brush Script MT", "Pacifico", cursive', fontSize: '36px', margin: '0', lineHeight: '1', fontWeight: 'normal' }}>Lekha Script</h1>
+              <h1 style={{ fontFamily: '"Brush Script MT", "Pacifico", cursive', fontSize: '38px', margin: '0', lineHeight: '1', fontWeight: 'normal' }}>Lekha Script</h1>
             )}
-            <div style={{ fontSize: '11px', lineHeight: '1.4' }}>Near P.C Junction, Areacode Road, Mukkam</div>
-            <div style={{ fontSize: '11px', lineHeight: '1.4' }}>Kozhikode, Kerala, India</div>
-            <div style={{ fontSize: '12px', fontWeight: 'bold', marginTop: '4px' }}>Contact : 9745298723</div>
+            <div style={{ fontSize: '11.5px', lineHeight: '1.4' }}>Near P.C Junction, Areacode Road, Mukkam</div>
+            <div style={{ fontSize: '11.5px', lineHeight: '1.4' }}>Kozhikode, Kerala, India</div>
+            <div style={{ fontSize: '12.5px', fontWeight: 'bold', marginTop: '4px' }}>Contact : 9745298723</div>
           </div>
 
           {/* Separator */}
           <div style={{ borderBottom: '1px dashed #000', margin: '10px 0' }}></div>
 
           {/* Meta Info */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', marginBottom: '4px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11.5px', marginBottom: '4px' }}>
             <div style={{ whiteSpace: 'nowrap' }}><b>Inv No :</b> {selectedBill.bill_no}</div>
             <div style={{ whiteSpace: 'nowrap' }}><b>Date :</b> {new Date(selectedBill.bill_date).toLocaleDateString('en-GB').replace(/\//g, '-')}</div>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', marginBottom: '10px' }}>
-            <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '62%' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11.5px', marginBottom: '10px' }}>
+            <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '65%' }}>
               <b>Customer :</b> {selectedBill.customer_name?.trim() || 'Walk-in'}
             </div>
             <div style={{ whiteSpace: 'nowrap' }}>
@@ -408,13 +408,13 @@ const PosReturnsPage = ({ onLogout }) => {
           <div style={{ borderBottom: '1px solid #000', margin: '5px 0' }}></div>
 
           {/* Table */}
-          <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse' }}>
+          <table style={{ width: '100%', fontSize: '11.5px', borderCollapse: 'collapse' }}>
             <thead>
               <tr>
-                <th style={{ textAlign: 'left', paddingBottom: '4px', width: '42%' }}>Product</th>
-                <th style={{ textAlign: 'center', paddingBottom: '4px', width: '14%' }}>Size</th>
-                <th style={{ textAlign: 'right', paddingBottom: '4px', width: '16%' }}>Rate</th>
-                <th style={{ textAlign: 'center', paddingBottom: '4px', width: '12%' }}>Qty</th>
+                <th style={{ textAlign: 'left', paddingBottom: '4px', width: '46%' }}>Product</th>
+                <th style={{ textAlign: 'center', paddingBottom: '4px', width: '13%' }}>Size</th>
+                <th style={{ textAlign: 'right', paddingBottom: '4px', width: '14%' }}>Rate</th>
+                <th style={{ textAlign: 'center', paddingBottom: '4px', width: '11%' }}>Qty</th>
                 <th style={{ textAlign: 'right', paddingBottom: '4px', width: '16%' }}>Amount</th>
               </tr>
             </thead>
@@ -426,13 +426,13 @@ const PosReturnsPage = ({ onLogout }) => {
               </tr>
               {selectedBill.items.map(item => (
                 <tr key={item.id}>
-                  <td style={{ textAlign: 'left', paddingBottom: '4px', width: '42%', wordBreak: 'break-word' }}>
+                  <td style={{ textAlign: 'left', paddingBottom: '4px', width: '46%', wordBreak: 'break-word' }}>
                     {`${item.product?.model || ''}-${item.product?.category || ''}`.toUpperCase().replace(/^-|-$/, '') || (item.product?.name || item.custom_name || 'Unknown').toUpperCase()}
                     {item.returned_quantity > 0 && <div style={{ color: 'var(--error)', fontSize: '9px', marginTop: '2px' }}>(Returned: {item.returned_quantity})</div>}
                   </td>
-                  <td style={{ textAlign: 'center', paddingBottom: '4px', verticalAlign: 'top', width: '14%' }}>{item.size || '-'}</td>
-                  <td style={{ textAlign: 'right', paddingBottom: '4px', verticalAlign: 'top', width: '16%' }}>{Number(item.unit_price).toFixed(2)}</td>
-                  <td style={{ textAlign: 'center', paddingBottom: '4px', whiteSpace: 'nowrap', verticalAlign: 'top', width: '12%' }}>{item.quantity}</td>
+                  <td style={{ textAlign: 'center', paddingBottom: '4px', verticalAlign: 'top', width: '13%' }}>{item.size || '-'}</td>
+                  <td style={{ textAlign: 'right', paddingBottom: '4px', verticalAlign: 'top', width: '14%' }}>{Number(item.unit_price).toFixed(2)}</td>
+                  <td style={{ textAlign: 'center', paddingBottom: '4px', whiteSpace: 'nowrap', verticalAlign: 'top', width: '11%' }}>{item.quantity}</td>
                   <td style={{ textAlign: 'right', paddingBottom: '4px', verticalAlign: 'top', width: '16%' }}>{Number(item.subtotal).toFixed(2)}</td>
                 </tr>
               ))}
@@ -443,14 +443,14 @@ const PosReturnsPage = ({ onLogout }) => {
           <div style={{ borderBottom: '1px solid #000', margin: '5px 0' }}></div>
 
           {/* Totals */}
-          <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse' }}>
+          <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
             <tbody>
               <tr>
-                <td style={{ paddingBottom: '4px', width: '45%', verticalAlign: 'top' }}>
+                <td style={{ paddingBottom: '4px', width: '46%', verticalAlign: 'top' }}>
                   <div style={{ marginBottom: '8px' }}><b>Items :</b> {selectedBill.items.reduce((sum, i) => sum + i.quantity, 0)}</div>
                   <div><b>Pay Mode :</b> {selectedBill.payment_mode || 'Cash'}</div>
                 </td>
-                <td style={{ textAlign: 'left', paddingBottom: '4px', borderLeft: '1px solid #000', paddingLeft: '8px', width: '35%' }}><b>Subtotal</b></td>
+                <td style={{ textAlign: 'left', paddingBottom: '4px', borderLeft: '1px solid #000', paddingLeft: '8px', width: '34%' }}><b>Subtotal</b></td>
                 <td style={{ textAlign: 'right', paddingBottom: '4px', width: '20%' }}>{Number(selectedBill.subtotal).toFixed(2)}</td>
               </tr>
               {Number(selectedBill.tax) > 0 && (
@@ -470,7 +470,7 @@ const PosReturnsPage = ({ onLogout }) => {
               <tr>
                 <td style={{ paddingBottom: '4px' }}></td>
                 <td style={{ textAlign: 'left', paddingBottom: '4px', borderLeft: '1px solid #000', paddingLeft: '8px' }}><b>Net Total</b></td>
-                <td style={{ textAlign: 'right', paddingBottom: '4px', fontWeight: 'bold', fontSize: '14px' }}>{Number(selectedBill.total).toFixed(2)}</td>
+                <td style={{ textAlign: 'right', paddingBottom: '4px', fontWeight: 'bold', fontSize: '14.5px' }}>{Number(selectedBill.total).toFixed(2)}</td>
               </tr>
               {(() => {
                 const alreadyReturned = selectedBill.items.reduce((sum, item) => sum + ((item.returned_quantity || 0) * item.unit_price), 0);
@@ -479,7 +479,7 @@ const PosReturnsPage = ({ onLogout }) => {
                     <tr>
                       <td style={{ paddingBottom: '4px' }}></td>
                       <td style={{ textAlign: 'left', paddingBottom: '4px', borderLeft: '1px solid #000', paddingLeft: '8px' }}><b>Refunded</b></td>
-                      <td style={{ textAlign: 'right', paddingBottom: '4px', fontWeight: 'bold', fontSize: '14px' }}>-{Number(alreadyReturned).toFixed(2)}</td>
+                      <td style={{ textAlign: 'right', paddingBottom: '4px', fontWeight: 'bold', fontSize: '14.5px' }}>-{Number(alreadyReturned).toFixed(2)}</td>
                     </tr>
                   );
                 }

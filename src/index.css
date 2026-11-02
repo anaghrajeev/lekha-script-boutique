@@ -2583,17 +2583,17 @@ address { font-style: normal; }
     overflow: visible !important;
   }
 
-  /* Thermal receipt container formatting (66mm gives a safe 6mm margin on 72mm active heads) */
+  /* Thermal receipt container formatting (72mm fits standard 79mm/80mm rolls) */
   #print-receipt,
   .receipt-container {
     display: block !important;
     box-sizing: border-box !important;
-    width: 66mm !important;
-    max-width: 66mm !important;
-    margin: 0 0 0 1mm !important;
-    padding: 2mm 3mm 2mm 1mm !important;
+    width: 72mm !important;
+    max-width: 72mm !important;
+    margin: 0 auto !important;
+    padding: 2mm 2mm 2mm 2mm !important;
     font-family: Arial, Helvetica, sans-serif !important;
-    font-size: 11.5px !important;
+    font-size: 12px !important;
     font-weight: 700 !important;
     line-height: 1.35 !important;
     color: #000000 !important;
