@@ -408,32 +408,32 @@ const PosReturnsPage = ({ onLogout }) => {
           <div style={{ borderBottom: '1px solid #000', margin: '5px 0' }}></div>
 
           {/* Table */}
-          <table style={{ width: '100%', fontSize: '11.5px', borderCollapse: 'collapse' }}>
+          <table style={{ width: '100%', tableLayout: 'fixed', fontSize: '11.5px', borderCollapse: 'collapse' }}>
             <thead>
               <tr>
-                <th style={{ textAlign: 'left', paddingBottom: '4px', width: '46%' }}>Product</th>
-                <th style={{ textAlign: 'center', paddingBottom: '4px', width: '13%' }}>Size</th>
-                <th style={{ textAlign: 'right', paddingBottom: '4px', width: '14%' }}>Rate</th>
-                <th style={{ textAlign: 'center', paddingBottom: '4px', width: '11%' }}>Qty</th>
-                <th style={{ textAlign: 'right', paddingBottom: '4px', width: '16%' }}>Amount</th>
+                <th style={{ textAlign: 'left', padding: '3px 4px 3px 0', width: '36%' }}>Product</th>
+                <th style={{ textAlign: 'center', padding: '3px 4px', width: '16%' }}>Size</th>
+                <th style={{ textAlign: 'right', padding: '3px 4px', width: '16%' }}>Rate</th>
+                <th style={{ textAlign: 'center', padding: '3px 4px', width: '14%' }}>Qty</th>
+                <th style={{ textAlign: 'right', padding: '3px 0 3px 4px', width: '18%' }}>Amount</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td colSpan="5">
+                <td colSpan="5" style={{ padding: '0' }}>
                   <div style={{ borderBottom: '1px dashed #000', marginBottom: '4px' }}></div>
                 </td>
               </tr>
               {selectedBill.items.map(item => (
                 <tr key={item.id}>
-                  <td style={{ textAlign: 'left', paddingBottom: '4px', width: '46%', wordBreak: 'break-word' }}>
+                  <td style={{ textAlign: 'left', padding: '3px 4px 3px 0', width: '36%', wordBreak: 'break-word' }}>
                     {`${item.product?.model || ''}-${item.product?.category || ''}`.toUpperCase().replace(/^-|-$/, '') || (item.product?.name || item.custom_name || 'Unknown').toUpperCase()}
                     {item.returned_quantity > 0 && <div style={{ color: 'var(--error)', fontSize: '9px', marginTop: '2px' }}>(Returned: {item.returned_quantity})</div>}
                   </td>
-                  <td style={{ textAlign: 'center', paddingBottom: '4px', verticalAlign: 'top', width: '13%' }}>{item.size || '-'}</td>
-                  <td style={{ textAlign: 'right', paddingBottom: '4px', verticalAlign: 'top', width: '14%' }}>{Number(item.unit_price).toFixed(2)}</td>
-                  <td style={{ textAlign: 'center', paddingBottom: '4px', whiteSpace: 'nowrap', verticalAlign: 'top', width: '11%' }}>{item.quantity}</td>
-                  <td style={{ textAlign: 'right', paddingBottom: '4px', verticalAlign: 'top', width: '16%' }}>{Number(item.subtotal).toFixed(2)}</td>
+                  <td style={{ textAlign: 'center', padding: '3px 4px', verticalAlign: 'top', width: '16%', whiteSpace: 'nowrap' }}>{item.size || '-'}</td>
+                  <td style={{ textAlign: 'right', padding: '3px 4px', verticalAlign: 'top', width: '16%', whiteSpace: 'nowrap' }}>{Number(item.unit_price).toFixed(2)}</td>
+                  <td style={{ textAlign: 'center', padding: '3px 4px', whiteSpace: 'nowrap', verticalAlign: 'top', width: '14%' }}>{item.quantity}</td>
+                  <td style={{ textAlign: 'right', padding: '3px 0 3px 4px', verticalAlign: 'top', width: '18%', whiteSpace: 'nowrap' }}>{Number(item.subtotal).toFixed(2)}</td>
                 </tr>
               ))}
             </tbody>
