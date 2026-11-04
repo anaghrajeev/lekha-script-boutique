@@ -15,8 +15,8 @@ function ReceiptTemplate({ data, settings }) {
 
   return (
     <div style={{
-      width: '72mm',
-      maxWidth: '100%',
+      width: '100%',
+      maxWidth: '72mm',
       margin: '0 auto',
       boxSizing: 'border-box',
       fontFamily: 'Arial, Helvetica, sans-serif',
@@ -25,7 +25,7 @@ function ReceiptTemplate({ data, settings }) {
       lineHeight: '1.35',
       color: '#000000',
       backgroundColor: '#ffffff',
-      padding: '2mm 2mm'
+      padding: '1mm 0'
     }}>
       {/* Header */}
       <div style={{ textAlign: 'center', marginBottom: '10px' }}>
@@ -66,11 +66,11 @@ function ReceiptTemplate({ data, settings }) {
       <table style={{ width: '100%', tableLayout: 'fixed', fontSize: '11.5px', borderCollapse: 'collapse', color: '#000000' }}>
         <thead>
           <tr>
-            <th style={{ textAlign: 'left', padding: '3px 4px 3px 0', width: '36%' }}>Product</th>
-            <th style={{ textAlign: 'center', padding: '3px 4px', width: '16%' }}>Size</th>
+            <th style={{ textAlign: 'left', padding: '3px 4px 3px 0', width: '35%' }}>Product</th>
+            <th style={{ textAlign: 'center', padding: '3px 4px', width: '17%' }}>Size</th>
             <th style={{ textAlign: 'right', padding: '3px 4px', width: '16%' }}>Rate</th>
-            <th style={{ textAlign: 'center', padding: '3px 4px', width: '14%' }}>Qty</th>
-            <th style={{ textAlign: 'right', padding: '3px 4px', width: '18%' }}>Amount</th>
+            <th style={{ textAlign: 'center', padding: '3px 4px', width: '10%' }}>Qty</th>
+            <th style={{ textAlign: 'right', padding: '3px 4px', width: '22%' }}>Amount</th>
           </tr>
         </thead>
         <tbody>
@@ -83,11 +83,11 @@ function ReceiptTemplate({ data, settings }) {
             const prodLabel = `${i.model || ''}-${i.category || ''}`.toUpperCase().replace(/^-|-$/, '') || (i.name || i.custom_name || 'Unknown').toUpperCase();
             return (
               <tr key={i.key || idx}>
-                <td style={{ textAlign: 'left', padding: '3px 4px 3px 0', width: '36%', wordBreak: 'break-word' }}>{prodLabel}</td>
-                <td style={{ textAlign: 'center', padding: '3px 4px', width: '16%', whiteSpace: 'nowrap' }}>{i.size || '-'}</td>
+                <td style={{ textAlign: 'left', padding: '3px 4px 3px 0', width: '35%', wordBreak: 'break-word' }}>{prodLabel}</td>
+                <td style={{ textAlign: 'center', padding: '3px 4px', width: '17%', whiteSpace: 'nowrap' }}>{i.size || '-'}</td>
                 <td style={{ textAlign: 'right', padding: '3px 4px', width: '16%', whiteSpace: 'nowrap' }}>{Number(i.unit_price || 0).toFixed(2)}</td>
-                <td style={{ textAlign: 'center', padding: '3px 4px', width: '14%', whiteSpace: 'nowrap' }}>{i.quantity}</td>
-                <td style={{ textAlign: 'right', padding: '3px 4px', width: '18%', whiteSpace: 'nowrap' }}>{Number(i.subtotal || 0).toFixed(2)}</td>
+                <td style={{ textAlign: 'center', padding: '3px 4px', width: '10%', whiteSpace: 'nowrap' }}>{i.quantity}</td>
+                <td style={{ textAlign: 'right', padding: '3px 4px', width: '22%', whiteSpace: 'nowrap' }}>{Number(i.subtotal || 0).toFixed(2)}</td>
               </tr>
             );
           })}
@@ -1033,7 +1033,7 @@ const PosBillingPage = ({ onLogout }) => {
       )}
 
       {/* Hidden Print Receipt Template */}
-      <div id="print-receipt" className="receipt-container" style={{ display: 'none', width: '72mm', padding: '2mm', boxSizing: 'border-box' }}>
+      <div id="print-receipt" className="receipt-container" style={{ display: 'none', width: '72mm', padding: 0, boxSizing: 'border-box' }}>
         <ReceiptTemplate 
           data={lastBillData || {
             billNo: lastBillNo || 'SINV-0000',

@@ -2591,7 +2591,7 @@ address { font-style: normal; }
     width: 72mm !important;
     max-width: 72mm !important;
     margin: 0 auto !important;
-    padding: 2mm 2mm 2mm 2mm !important;
+    padding: 2mm 1mm !important;
     font-family: Arial, Helvetica, sans-serif !important;
     font-size: 12px !important;
     font-weight: 700 !important;

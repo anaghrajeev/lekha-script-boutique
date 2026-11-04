@@ -62,7 +62,7 @@ export const printThermalReceipt = (elementId = 'print-receipt') => {
             width: 72mm;
             max-width: 72mm;
             margin: 0 auto;
-            padding: 2mm 2mm 2mm 2mm;
+            padding: 2mm 1mm;
             font-family: Arial, Helvetica, sans-serif;
             font-size: 12px;
             font-weight: 700;
