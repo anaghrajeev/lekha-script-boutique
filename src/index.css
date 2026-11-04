@@ -2668,7 +2668,7 @@ address { font-style: normal; }
   #print-receipt td:last-child,
   .receipt-container th:last-child,
   .receipt-container td:last-child {
-    padding-right: 3px !important;
+    padding-right: 4px !important;
   }
 
   #print-receipt div[style*="space-between"],

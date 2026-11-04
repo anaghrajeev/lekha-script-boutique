@@ -70,7 +70,7 @@ function ReceiptTemplate({ data, settings }) {
             <th style={{ textAlign: 'center', padding: '3px 4px', width: '16%' }}>Size</th>
             <th style={{ textAlign: 'right', padding: '3px 4px', width: '16%' }}>Rate</th>
             <th style={{ textAlign: 'center', padding: '3px 4px', width: '14%' }}>Qty</th>
-            <th style={{ textAlign: 'right', padding: '3px 0 3px 4px', width: '18%' }}>Amount</th>
+            <th style={{ textAlign: 'right', padding: '3px 4px', width: '18%' }}>Amount</th>
           </tr>
         </thead>
         <tbody>
@@ -87,7 +87,7 @@ function ReceiptTemplate({ data, settings }) {
                 <td style={{ textAlign: 'center', padding: '3px 4px', width: '16%', whiteSpace: 'nowrap' }}>{i.size || '-'}</td>
                 <td style={{ textAlign: 'right', padding: '3px 4px', width: '16%', whiteSpace: 'nowrap' }}>{Number(i.unit_price || 0).toFixed(2)}</td>
                 <td style={{ textAlign: 'center', padding: '3px 4px', width: '14%', whiteSpace: 'nowrap' }}>{i.quantity}</td>
-                <td style={{ textAlign: 'right', padding: '3px 0 3px 4px', width: '18%', whiteSpace: 'nowrap' }}>{Number(i.subtotal || 0).toFixed(2)}</td>
+                <td style={{ textAlign: 'right', padding: '3px 4px', width: '18%', whiteSpace: 'nowrap' }}>{Number(i.subtotal || 0).toFixed(2)}</td>
               </tr>
             );
           })}

@@ -415,7 +415,7 @@ const PosReturnsPage = ({ onLogout }) => {
                 <th style={{ textAlign: 'center', padding: '3px 4px', width: '16%' }}>Size</th>
                 <th style={{ textAlign: 'right', padding: '3px 4px', width: '16%' }}>Rate</th>
                 <th style={{ textAlign: 'center', padding: '3px 4px', width: '14%' }}>Qty</th>
-                <th style={{ textAlign: 'right', padding: '3px 0 3px 4px', width: '18%' }}>Amount</th>
+                <th style={{ textAlign: 'right', padding: '3px 4px', width: '18%' }}>Amount</th>
               </tr>
             </thead>
             <tbody>
@@ -433,7 +433,7 @@ const PosReturnsPage = ({ onLogout }) => {
                   <td style={{ textAlign: 'center', padding: '3px 4px', verticalAlign: 'top', width: '16%', whiteSpace: 'nowrap' }}>{item.size || '-'}</td>
                   <td style={{ textAlign: 'right', padding: '3px 4px', verticalAlign: 'top', width: '16%', whiteSpace: 'nowrap' }}>{Number(item.unit_price).toFixed(2)}</td>
                   <td style={{ textAlign: 'center', padding: '3px 4px', whiteSpace: 'nowrap', verticalAlign: 'top', width: '14%' }}>{item.quantity}</td>
-                  <td style={{ textAlign: 'right', padding: '3px 0 3px 4px', verticalAlign: 'top', width: '18%', whiteSpace: 'nowrap' }}>{Number(item.subtotal).toFixed(2)}</td>
+                  <td style={{ textAlign: 'right', padding: '3px 4px', verticalAlign: 'top', width: '18%', whiteSpace: 'nowrap' }}>{Number(item.subtotal).toFixed(2)}</td>
                 </tr>
               ))}
             </tbody>
