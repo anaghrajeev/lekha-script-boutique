@@ -2583,14 +2583,14 @@ address { font-style: normal; }
     overflow: visible !important;
   }
 
-  /* Thermal receipt container formatting (72mm fits standard 79mm/80mm rolls) */
+  /* Thermal receipt container formatting (68mm cleanly centered on 79mm/80mm rolls) */
   #print-receipt,
   .receipt-container {
     display: block !important;
     box-sizing: border-box !important;
-    width: 72mm !important;
-    max-width: 72mm !important;
-    margin: 0 auto !important;
+    width: 68mm !important;
+    max-width: 68mm !important;
+    margin: 0 0 0 1mm !important;
     padding: 2mm 1mm !important;
     font-family: Arial, Helvetica, sans-serif !important;
     font-size: 12px !important;
@@ -2673,7 +2673,7 @@ address { font-style: normal; }
 
   #print-receipt div[style*="space-between"],
   .receipt-container div[style*="space-between"] {
-    padding-right: 3px !important;
+    padding-right: 4px !important;
   }
 
   @page {

@@ -371,7 +371,7 @@ const PosReturnsPage = ({ onLogout }) => {
 
       {/* Hidden Print Receipt Template */}
       {selectedBill && (
-        <div id="print-receipt" className="receipt-container" style={{ display: 'none', width: '72mm', padding: 0, boxSizing: 'border-box' }}>
+        <div id="print-receipt" className="receipt-container" style={{ display: 'none', width: '68mm', padding: 0, boxSizing: 'border-box' }}>
           {/* Header */}
           <div style={{ textAlign: 'center', marginBottom: '10px' }}>
             <div style={{ fontSize: '12.5px', marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
@@ -391,11 +391,11 @@ const PosReturnsPage = ({ onLogout }) => {
           <div style={{ borderBottom: '1px dashed #000', margin: '10px 0' }}></div>
 
           {/* Meta Info */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11.5px', marginBottom: '4px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11.5px', marginBottom: '4px', paddingRight: '4px' }}>
             <div style={{ whiteSpace: 'nowrap' }}><b>Inv No :</b> {selectedBill.bill_no}</div>
             <div style={{ whiteSpace: 'nowrap' }}><b>Date :</b> {new Date(selectedBill.bill_date).toLocaleDateString('en-GB').replace(/\//g, '-')}</div>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11.5px', marginBottom: '10px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11.5px', marginBottom: '10px', paddingRight: '4px' }}>
             <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '65%' }}>
               <b>Customer :</b> {selectedBill.customer_name?.trim() || 'Walk-in'}
             </div>

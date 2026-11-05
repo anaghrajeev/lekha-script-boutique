@@ -16,7 +16,7 @@ function ReceiptTemplate({ data, settings }) {
   return (
     <div style={{
       width: '100%',
-      maxWidth: '72mm',
+      maxWidth: '68mm',
       margin: '0 auto',
       boxSizing: 'border-box',
       fontFamily: 'Arial, Helvetica, sans-serif',
@@ -46,11 +46,11 @@ function ReceiptTemplate({ data, settings }) {
       <div style={{ borderBottom: '1px dashed #000', margin: '10px 0' }}></div>
 
       {/* Meta Info */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11.5px', marginBottom: '4px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11.5px', marginBottom: '4px', paddingRight: '4px' }}>
         <div style={{ whiteSpace: 'nowrap' }}><b>Inv No :</b> {data.billNo}</div>
         <div style={{ whiteSpace: 'nowrap' }}><b>Date :</b> {timeDate.toLocaleDateString('en-GB').replace(/\//g, '-')}</div>
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11.5px', marginBottom: '10px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11.5px', marginBottom: '10px', paddingRight: '4px' }}>
         <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '65%' }}>
           <b>Customer :</b> {data.customerInfo?.name?.trim() || 'Walk-in'}
         </div>
@@ -1033,7 +1033,7 @@ const PosBillingPage = ({ onLogout }) => {
       )}
 
       {/* Hidden Print Receipt Template */}
-      <div id="print-receipt" className="receipt-container" style={{ display: 'none', width: '72mm', padding: 0, boxSizing: 'border-box' }}>
+      <div id="print-receipt" className="receipt-container" style={{ display: 'none', width: '68mm', padding: 0, boxSizing: 'border-box' }}>
         <ReceiptTemplate 
           data={lastBillData || {
             billNo: lastBillNo || 'SINV-0000',
@@ -1097,7 +1097,7 @@ const PosBillingPage = ({ onLogout }) => {
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between'
               }}>
                 <span>Bill Print Preview</span>
-                <span style={{ fontSize: '10px', color: 'var(--on-surface-variant)' }}>Thermal 79mm Roll (72mm Print)</span>
+                <span style={{ fontSize: '10px', color: 'var(--on-surface-variant)' }}>Thermal 79mm Roll (68mm Safe Print)</span>
               </div>
               <div style={{
                 backgroundColor: '#ffffff',
