@@ -71,7 +71,7 @@ const PosReturnsPage = ({ onLogout }) => {
 
     let matchDate = true;
     if (searchDate) {
-      const billD = new Date(bill.bill_date);
+      const billD = new Date(bill.bill_date || bill.created_at);
       const billDateStr = `${billD.getFullYear()}-${String(billD.getMonth() + 1).padStart(2, '0')}-${String(billD.getDate()).padStart(2, '0')}`;
       matchDate = billDateStr === searchDate;
     }
@@ -313,7 +313,7 @@ const PosReturnsPage = ({ onLogout }) => {
                 </div>
               </div>
               <div style={{ color: 'var(--on-surface-variant)', marginBottom: '24px', display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
-                <div>Date: <strong>{new Date(selectedBill.bill_date).toLocaleString()}</strong></div>
+                <div>Date: <strong>{new Date(selectedBill.bill_date || selectedBill.created_at).toLocaleString()}</strong></div>
                 <div>Customer: <strong>{selectedBill.customer_name || 'Walk-in'} {selectedBill.customer_phone ? `(${selectedBill.customer_phone})` : ''}</strong></div>
                 <div>Payment Mode: <strong style={{ color: 'var(--primary)' }}>{selectedBill.payment_mode || 'Cash'}</strong></div>
               </div>
@@ -430,14 +430,14 @@ const PosReturnsPage = ({ onLogout }) => {
           {/* Meta Info */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11.5px', marginBottom: '4px', paddingRight: '4px' }}>
             <div style={{ whiteSpace: 'nowrap' }}><b>Inv No :</b> {selectedBill.bill_no}</div>
-            <div style={{ whiteSpace: 'nowrap' }}><b>Date :</b> {new Date(selectedBill.bill_date).toLocaleDateString('en-GB').replace(/\//g, '-')}</div>
+            <div style={{ whiteSpace: 'nowrap' }}><b>Date :</b> {new Date(selectedBill.bill_date || selectedBill.created_at).toLocaleDateString('en-GB').replace(/\//g, '-')}</div>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11.5px', marginBottom: '10px', paddingRight: '4px' }}>
             <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '65%' }}>
               <b>Customer :</b> {selectedBill.customer_name?.trim() || 'Walk-in'}
             </div>
             <div style={{ whiteSpace: 'nowrap' }}>
-              <b>Time :</b> {new Date(selectedBill.bill_date).toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true })}
+              <b>Time :</b> {new Date(selectedBill.bill_date || selectedBill.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true })}
             </div>
           </div>
 

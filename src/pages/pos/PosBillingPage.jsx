@@ -45,6 +45,27 @@ function formatReceiptSize(rawSize) {
   );
 }
 
+const getTodayDateString = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const formatToDdMmYyyy = (isoStr) => {
+  if (!isoStr) return '';
+  const parts = String(isoStr).trim().split('-');
+  if (parts.length === 3) {
+    if (parts[0].length === 4) {
+      // YYYY-MM-DD -> DD-MM-YYYY
+      return `${parts[2]}-${parts[1]}-${parts[0]}`;
+    }
+    return isoStr;
+  }
+  return isoStr;
+};
+
 function ReceiptTemplate({ data, settings }) {
   if (!data) return null;
   const items = data.items || [];
@@ -217,6 +238,8 @@ const PosBillingPage = ({ onLogout }) => {
   const [miscName, setMiscName] = useState('Misc Charge');
   const [miscPrice, setMiscPrice] = useState('');
   const [showParkedDialog, setShowParkedDialog] = useState(false);
+  const [billingDate, setBillingDate] = useState(() => getTodayDateString());
+  const billingDateInputRef = useRef(null);
 
   // Quick Add Stock Batch State from POS
   const [addBatchProduct, setAddBatchProduct] = useState(null);
@@ -432,7 +455,7 @@ const PosBillingPage = ({ onLogout }) => {
 
     setCheckoutLoading(true);
     try {
-      const res = await checkoutPos(effectivePaymentMode, gstAmount, computedDiscountAmount);
+      const res = await checkoutPos(effectivePaymentMode, gstAmount, computedDiscountAmount, billingDate);
       // Immediately display dialog and reset checkout fields with zero delay
       setLastBillNo(res.billNo);
       setShowCheckoutDialog(true);
@@ -441,6 +464,7 @@ const PosBillingPage = ({ onLogout }) => {
       setDiscountType('amount');
       setPaymentMode('UPI');
       setSearchTerm('');
+      setBillingDate(getTodayDateString());
       // Sync global data in the background without blocking the dialog
       fetchGlobalData?.().catch(err => console.warn('Background sync error:', err));
     } catch (err) {
@@ -457,6 +481,7 @@ const PosBillingPage = ({ onLogout }) => {
     setDiscountType('amount');
     setPaymentMode('UPI');
     setSearchTerm('');
+    setBillingDate(getTodayDateString());
   };
 
   const handlePrintAndCloseCheckoutDialog = () => {
@@ -467,6 +492,7 @@ const PosBillingPage = ({ onLogout }) => {
     setDiscountType('amount');
     setPaymentMode('UPI');
     setSearchTerm('');
+    setBillingDate(getTodayDateString());
   };
 
   const handlePrintLastReceipt = () => {
@@ -759,7 +785,89 @@ const PosBillingPage = ({ onLogout }) => {
 
         {/* Right Side: Cart */}
         <div style={{ flex: 1, backgroundColor: 'var(--surface-container)', borderRadius: '12px', padding: '24px', display: 'flex', flexDirection: 'column' }} className="pos-cart-panel">
-          <h2 className="font-serif" style={{ marginBottom: '16px' }}>Current Bill</h2>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', gap: '8px' }}>
+            <h2 className="font-serif" style={{ margin: 0 }}>Current Bill</h2>
+            
+            {/* Billing Date (DD-MM-YYYY) */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div 
+                style={{ 
+                  position: 'relative', 
+                  display: 'inline-flex', 
+                  alignItems: 'center' 
+                }}
+              >
+                <div 
+                  onClick={() => {
+                    if (billingDateInputRef.current) {
+                      if (typeof billingDateInputRef.current.showPicker === 'function') {
+                        billingDateInputRef.current.showPicker();
+                      } else {
+                        billingDateInputRef.current.focus();
+                      }
+                    }
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '6px 10px',
+                    backgroundColor: 'var(--surface)',
+                    border: '1px solid var(--outline-variant)',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontSize: '12.5px',
+                    fontWeight: '600',
+                    color: 'var(--on-surface)',
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                    userSelect: 'none'
+                  }}
+                  title="Click to change billing date (DD-MM-YYYY)"
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: '16px', color: 'var(--primary)' }}>calendar_today</span>
+                  <span>{formatToDdMmYyyy(billingDate)}</span>
+                </div>
+
+                <input 
+                  id="pos-billing-date"
+                  ref={billingDateInputRef}
+                  type="date"
+                  value={billingDate}
+                  onChange={(e) => setBillingDate(e.target.value || getTodayDateString())}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    opacity: 0,
+                    cursor: 'pointer'
+                  }}
+                  title="Select Billing Date"
+                />
+              </div>
+
+              {billingDate !== getTodayDateString() && (
+                <button
+                  type="button"
+                  onClick={() => setBillingDate(getTodayDateString())}
+                  style={{
+                    padding: '5px 8px',
+                    fontSize: '11px',
+                    borderRadius: '6px',
+                    border: '1px solid var(--outline-variant)',
+                    backgroundColor: 'var(--surface)',
+                    color: 'var(--primary)',
+                    cursor: 'pointer',
+                    fontWeight: '600'
+                  }}
+                  title="Reset to current date"
+                >
+                  Today
+                </button>
+              )}
+            </div>
+          </div>
           
           <div style={{ marginBottom: '16px' }}>
             <input 
@@ -997,6 +1105,7 @@ const PosBillingPage = ({ onLogout }) => {
                   setDiscountType('amount');
                   setPaymentMode('UPI');
                   setSearchTerm('');
+                  setBillingDate(getTodayDateString());
                 }}
                 style={{ flex: 1, padding: '16px', border: '1px solid var(--error)', color: 'var(--error)', borderRadius: '8px', fontWeight: '600' }}
               >
@@ -1083,7 +1192,7 @@ const PosBillingPage = ({ onLogout }) => {
             discount: computedDiscountAmount,
             total: cartTotal,
             paymentMode,
-            time: new Date()
+            time: billingDate ? new Date(`${billingDate}T${new Date().toTimeString().split(' ')[0]}`) : new Date()
           }} 
           settings={settings} 
         />
@@ -1155,7 +1264,7 @@ const PosBillingPage = ({ onLogout }) => {
                     discount: computedDiscountAmount,
                     total: cartTotal,
                     paymentMode,
-                    time: new Date()
+                    time: billingDate ? new Date(`${billingDate}T${new Date().toTimeString().split(' ')[0]}`) : new Date()
                   }} 
                   settings={settings} 
                 />

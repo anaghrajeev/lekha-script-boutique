@@ -24,7 +24,7 @@ const PosAnalyticsPage = ({ onLogout }) => {
 
   const filteredBills = useMemo(() => {
     return bills.filter(b => {
-      const rawDate = b.created_at || b.bill_date;
+      const rawDate = b.bill_date || b.created_at;
       if (!rawDate) return false;
       const billDate = new Date(rawDate);
       if (isNaN(billDate.getTime())) return false;

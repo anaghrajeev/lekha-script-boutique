@@ -243,7 +243,7 @@ export function PosStoreProvider({ children }) {
   }, []);
 
   // Checkout
-  const checkoutPos = useCallback(async (paymentMode = 'UPI', tax = 0, discount = 0) => {
+  const checkoutPos = useCallback(async (paymentMode = 'UPI', tax = 0, discount = 0, customBillingDate = null) => {
     if (posCart.length === 0) throw new Error('Cart is empty');
     
     const subtotal = posCart.reduce((sum, item) => sum + item.subtotal, 0);
@@ -259,6 +259,26 @@ export function PosStoreProvider({ children }) {
       name: i.name
     }));
 
+    // Calculate final billing timestamp
+    let finalDate = new Date();
+    if (customBillingDate) {
+      const parts = String(customBillingDate).trim().split('-');
+      if (parts.length === 3) {
+        let y, m, d;
+        if (parts[0].length === 4) {
+          // YYYY-MM-DD
+          [y, m, d] = parts.map(Number);
+        } else {
+          // DD-MM-YYYY
+          [d, m, y] = parts.map(Number);
+        }
+        if (y && m && d) {
+          const now = new Date();
+          finalDate = new Date(y, m - 1, d, now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
+        }
+      }
+    }
+
     try {
       const { data, error } = await supabase.rpc('process_pos_checkout', {
         p_customer_name: customerInfo.name || null,
@@ -272,6 +292,18 @@ export function PosStoreProvider({ children }) {
       });
 
       if (error) throw error;
+
+      // Update bill_date and created_at to the chosen billing date
+      if (data?.bill_id) {
+        const { error: updateErr } = await supabase
+          .from('bills')
+          .update({
+            bill_date: finalDate.toISOString(),
+            created_at: finalDate.toISOString()
+          })
+          .eq('id', data.bill_id);
+        if (updateErr) console.warn('Could not update bill_date:', updateErr);
+      }
       
       // Save for "Reprint Last Bill" feature
       setLastBillData({
@@ -283,7 +315,7 @@ export function PosStoreProvider({ children }) {
         discount,
         total,
         paymentMode,
-        time: new Date()
+        time: finalDate
       });
 
       // Optimistically decrement sold batch quantities in memory right away so stock adjusts with 0ms lag
