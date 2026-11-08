@@ -8,6 +8,43 @@ import { generateBatchNumber } from '../../lib/batchUtils.js';
 import { printThermalReceipt } from '../../lib/printReceipt.js';
 import { broadcastStockChange } from '../../lib/stockSync.js';
 
+function formatReceiptSize(rawSize) {
+  if (!rawSize) return '-';
+  const sizeStr = String(rawSize).trim();
+  if (sizeStr.length <= 4) {
+    return <span style={{ whiteSpace: 'nowrap' }}>{sizeStr}</span>;
+  }
+  
+  // Exceeds 4 characters: split onto next line
+  if (sizeStr.includes(' ')) {
+    return (
+      <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', lineHeight: '1.15' }}>
+        {sizeStr.split(/\s+/).map((part, idx) => (
+          <span key={idx} style={{ whiteSpace: 'nowrap' }}>{part}</span>
+        ))}
+      </div>
+    );
+  }
+
+  if (sizeStr.includes('-') || sizeStr.includes('/')) {
+    const sep = sizeStr.includes('-') ? '-' : '/';
+    return (
+      <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', lineHeight: '1.15' }}>
+        {sizeStr.split(sep).map((part, idx, arr) => (
+          <span key={idx} style={{ whiteSpace: 'nowrap' }}>{part}{idx < arr.length - 1 ? sep : ''}</span>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', lineHeight: '1.15' }}>
+      <span style={{ whiteSpace: 'nowrap' }}>{sizeStr.slice(0, 4)}</span>
+      <span style={{ whiteSpace: 'nowrap' }}>{sizeStr.slice(4)}</span>
+    </div>
+  );
+}
+
 function ReceiptTemplate({ data, settings }) {
   if (!data) return null;
   const items = data.items || [];
@@ -83,11 +120,13 @@ function ReceiptTemplate({ data, settings }) {
             const prodLabel = `${i.model || ''}-${i.category || ''}`.toUpperCase().replace(/^-|-$/, '') || (i.name || i.custom_name || 'Unknown').toUpperCase();
             return (
               <tr key={i.key || idx}>
-                <td style={{ textAlign: 'left', padding: '3px 4px 3px 0', width: '35%', wordBreak: 'break-word' }}>{prodLabel}</td>
-                <td style={{ textAlign: 'center', padding: '3px 4px', width: '17%', whiteSpace: 'nowrap' }}>{i.size || '-'}</td>
-                <td style={{ textAlign: 'right', padding: '3px 4px', width: '16%', whiteSpace: 'nowrap' }}>{Number(i.unit_price || 0).toFixed(2)}</td>
-                <td style={{ textAlign: 'center', padding: '3px 4px', width: '10%', whiteSpace: 'nowrap' }}>{i.quantity}</td>
-                <td style={{ textAlign: 'right', padding: '3px 4px', width: '22%', whiteSpace: 'nowrap' }}>{Number(i.subtotal || 0).toFixed(2)}</td>
+                <td style={{ textAlign: 'left', padding: '3px 4px 3px 0', width: '35%', wordBreak: 'break-word', verticalAlign: 'top' }}>{prodLabel}</td>
+                <td style={{ textAlign: 'center', padding: '3px 4px', width: '17%', verticalAlign: 'top' }}>
+                  {formatReceiptSize(i.size)}
+                </td>
+                <td style={{ textAlign: 'right', padding: '3px 4px', width: '16%', whiteSpace: 'nowrap', verticalAlign: 'top' }}>{Number(i.unit_price || 0).toFixed(2)}</td>
+                <td style={{ textAlign: 'center', padding: '3px 4px', width: '10%', whiteSpace: 'nowrap', verticalAlign: 'top' }}>{i.quantity}</td>
+                <td style={{ textAlign: 'right', padding: '3px 4px', width: '22%', whiteSpace: 'nowrap', verticalAlign: 'top' }}>{Number(i.subtotal || 0).toFixed(2)}</td>
               </tr>
             );
           })}

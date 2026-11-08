@@ -15,6 +15,43 @@ const getTodayDateString = () => {
   return `${year}-${month}-${day}`;
 };
 
+function formatReceiptSize(rawSize) {
+  if (!rawSize) return '-';
+  const sizeStr = String(rawSize).trim();
+  if (sizeStr.length <= 4) {
+    return <span style={{ whiteSpace: 'nowrap' }}>{sizeStr}</span>;
+  }
+  
+  // Exceeds 4 characters: split onto next line
+  if (sizeStr.includes(' ')) {
+    return (
+      <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', lineHeight: '1.15' }}>
+        {sizeStr.split(/\s+/).map((part, idx) => (
+          <span key={idx} style={{ whiteSpace: 'nowrap' }}>{part}</span>
+        ))}
+      </div>
+    );
+  }
+
+  if (sizeStr.includes('-') || sizeStr.includes('/')) {
+    const sep = sizeStr.includes('-') ? '-' : '/';
+    return (
+      <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', lineHeight: '1.15' }}>
+        {sizeStr.split(sep).map((part, idx, arr) => (
+          <span key={idx} style={{ whiteSpace: 'nowrap' }}>{part}{idx < arr.length - 1 ? sep : ''}</span>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', lineHeight: '1.15' }}>
+      <span style={{ whiteSpace: 'nowrap' }}>{sizeStr.slice(0, 4)}</span>
+      <span style={{ whiteSpace: 'nowrap' }}>{sizeStr.slice(4)}</span>
+    </div>
+  );
+}
+
 const PosReturnsPage = ({ onLogout }) => {
   const { bills, fetchBills, fetchPosData, deleteBill, settings } = usePosStore();
   const { fetchData: fetchGlobalData } = useStore();
@@ -430,7 +467,9 @@ const PosReturnsPage = ({ onLogout }) => {
                     {`${item.product?.model || ''}-${item.product?.category || ''}`.toUpperCase().replace(/^-|-$/, '') || (item.product?.name || item.custom_name || 'Unknown').toUpperCase()}
                     {item.returned_quantity > 0 && <div style={{ color: 'var(--error)', fontSize: '9px', marginTop: '2px' }}>(Returned: {item.returned_quantity})</div>}
                   </td>
-                  <td style={{ textAlign: 'center', padding: '3px 4px', verticalAlign: 'top', width: '17%', whiteSpace: 'nowrap' }}>{item.size || '-'}</td>
+                  <td style={{ textAlign: 'center', padding: '3px 4px', verticalAlign: 'top', width: '17%' }}>
+                    {formatReceiptSize(item.size)}
+                  </td>
                   <td style={{ textAlign: 'right', padding: '3px 4px', verticalAlign: 'top', width: '16%', whiteSpace: 'nowrap' }}>{Number(item.unit_price).toFixed(2)}</td>
                   <td style={{ textAlign: 'center', padding: '3px 4px', whiteSpace: 'nowrap', verticalAlign: 'top', width: '10%' }}>{item.quantity}</td>
                   <td style={{ textAlign: 'right', padding: '3px 4px', verticalAlign: 'top', width: '22%', whiteSpace: 'nowrap' }}>{Number(item.subtotal).toFixed(2)}</td>
