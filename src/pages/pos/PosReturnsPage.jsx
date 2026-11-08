@@ -463,12 +463,12 @@ const PosReturnsPage = ({ onLogout }) => {
               </tr>
               {selectedBill.items.map(item => (
                 <tr key={item.id}>
-                  <td style={{ textAlign: 'left', padding: '3px 4px 3px 0', width: '35%', wordBreak: 'break-word' }}>
-                    {`${item.product?.model || ''}-${item.product?.category || ''}`.toUpperCase().replace(/^-|-$/, '') || (item.product?.name || item.custom_name || 'Unknown').toUpperCase()}
+                  <td style={{ textAlign: 'left', padding: '3px 4px 3px 0', width: '35%', wordBreak: 'break-word', verticalAlign: 'top' }}>
+                    {`${item.product?.model || item.model || ''}-${item.product?.category || item.category || ''}`.toUpperCase().replace(/^-|-$/, '') || (item.product?.name || item.name || item.custom_name || 'Unknown').toUpperCase()}
                     {item.returned_quantity > 0 && <div style={{ color: 'var(--error)', fontSize: '9px', marginTop: '2px' }}>(Returned: {item.returned_quantity})</div>}
                   </td>
                   <td style={{ textAlign: 'center', padding: '3px 4px', verticalAlign: 'top', width: '17%' }}>
-                    {formatReceiptSize(item.size)}
+                    {formatReceiptSize(item.size || item.product?.size)}
                   </td>
                   <td style={{ textAlign: 'right', padding: '3px 4px', verticalAlign: 'top', width: '16%', whiteSpace: 'nowrap' }}>{Number(item.unit_price).toFixed(2)}</td>
                   <td style={{ textAlign: 'center', padding: '3px 4px', whiteSpace: 'nowrap', verticalAlign: 'top', width: '10%' }}>{item.quantity}</td>

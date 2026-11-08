@@ -149,7 +149,7 @@ export function PosStoreProvider({ children }) {
     try {
       const { data, error } = await supabase
         .from('bills')
-        .select('*, items:bill_items(*, product:products(name))')
+        .select('*, items:bill_items(*, product:products(name, model, category))')
         .order('created_at', { ascending: false })
         .limit(limit);
       
