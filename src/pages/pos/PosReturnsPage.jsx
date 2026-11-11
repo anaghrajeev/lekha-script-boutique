@@ -414,8 +414,8 @@ const PosReturnsPage = ({ onLogout }) => {
             <div style={{ fontSize: '12.5px', marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
               {selectedBill.status === 'returned' || selectedBill.status === 'partial_return' ? 'Return / Sales Invoice' : 'Sales Invoice'}
             </div>
-            {settings?.logoUrl ? (
-              <img src={settings.logoUrl} alt="Store Logo" style={{ maxHeight: '65px', margin: '0 auto 8px auto', display: 'block' }} />
+            {(settings?.logoBase64 || settings?.logoUrl) ? (
+              <img src={settings.logoBase64 || settings.logoUrl} alt="Store Logo" style={{ maxHeight: '65px', margin: '0 auto 8px auto', display: 'block' }} />
             ) : (
               <h1 style={{ fontFamily: '"Brush Script MT", "Pacifico", cursive', fontSize: '38px', margin: '0', lineHeight: '1', fontWeight: 'normal' }}>Lekha Script</h1>
             )}

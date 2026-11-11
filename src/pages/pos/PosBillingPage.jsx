@@ -88,8 +88,8 @@ function ReceiptTemplate({ data, settings }) {
       {/* Header */}
       <div style={{ textAlign: 'center', marginBottom: '10px' }}>
         <div style={{ fontSize: '12.5px', marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Sales Invoice</div>
-        {settings?.logoUrl ? (
-          <img src={settings.logoUrl} alt="Store Logo" style={{ maxHeight: '65px', margin: '0 auto 8px auto', display: 'block' }} />
+        {(settings?.logoBase64 || settings?.logoUrl) ? (
+          <img src={settings.logoBase64 || settings.logoUrl} alt="Store Logo" style={{ maxHeight: '65px', margin: '0 auto 8px auto', display: 'block' }} />
         ) : (
           <h1 style={{ fontFamily: '"Brush Script MT", "Pacifico", cursive', fontSize: '38px', margin: '0', lineHeight: '1', fontWeight: 'normal', color: '#000000' }}>
             Lekha Script

@@ -4,6 +4,24 @@ import { broadcastStockChange, onStockChange } from '../lib/stockSync.js';
 
 const PosStoreContext = createContext(null);
 
+const convertUrlToBase64 = async (url) => {
+  if (!url) return '';
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return '';
+    const blob = await res.blob();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result || '');
+      reader.onerror = () => resolve('');
+      reader.readAsDataURL(blob);
+    });
+  } catch (e) {
+    console.warn('Could not convert logo to base64:', e);
+    return '';
+  }
+};
+
 export function PosStoreProvider({ children }) {
   const [batches, setBatches] = useState([]);
   const [bills, setBills] = useState([]);
@@ -19,21 +37,61 @@ export function PosStoreProvider({ children }) {
   const [parkedCarts, setParkedCarts] = useState([]);
   const [lastBillData, setLastBillData] = useState(null);
 
-  // POS Settings
-  const [settings, setSettings] = useState({ enableDiscounts: false, enableGst: false, gstPercentage: 18, invoiceStartNumber: 1000, logoUrl: '' });
+  // POS Settings with instant Base64 logo from localStorage if available
+  const [settings, setSettings] = useState(() => {
+    let cachedBase64 = '';
+    let cachedUrl = '';
+    try {
+      if (typeof window !== 'undefined') {
+        cachedBase64 = localStorage.getItem('pos_cached_logo_base64') || '';
+        cachedUrl = localStorage.getItem('pos_cached_logo_url') || '';
+      }
+    } catch (_) {}
+    return {
+      enableDiscounts: false,
+      enableGst: false,
+      gstPercentage: 18,
+      invoiceStartNumber: 1000,
+      logoUrl: cachedUrl,
+      logoBase64: cachedBase64
+    };
+  });
 
   const fetchPosSettings = useCallback(async () => {
     try {
       const { data, error } = await supabase.from('pos_settings').select('*').limit(1);
       if (!error && data && data.length > 0) {
         const row = data[0];
+        const currentUrl = row.logo_url || '';
+        
+        let cachedBase64 = '';
+        let cachedUrl = '';
+        try {
+          cachedBase64 = localStorage.getItem('pos_cached_logo_base64') || '';
+          cachedUrl = localStorage.getItem('pos_cached_logo_url') || '';
+        } catch (_) {}
+
+        // If logo URL exists and either isn't cached or URL changed, cache in background
+        if (currentUrl && (currentUrl !== cachedUrl || !cachedBase64)) {
+          convertUrlToBase64(currentUrl).then((b64) => {
+            if (b64) {
+              try {
+                localStorage.setItem('pos_cached_logo_base64', b64);
+                localStorage.setItem('pos_cached_logo_url', currentUrl);
+              } catch (_) {}
+              setSettings((prev) => ({ ...prev, logoBase64: b64 }));
+            }
+          });
+        }
+
         setSettings({
           id: row.id,
           enableDiscounts: row.enable_discounts,
           enableGst: row.enable_gst,
           gstPercentage: row.gst_percentage,
           invoiceStartNumber: row.invoice_start_number || 1000,
-          logoUrl: row.logo_url || ''
+          logoUrl: currentUrl,
+          logoBase64: (currentUrl === cachedUrl && cachedBase64) ? cachedBase64 : ''
         });
       }
     } catch (err) {
@@ -43,6 +101,17 @@ export function PosStoreProvider({ children }) {
 
   const updateSettings = useCallback(async (newSettings) => {
     setSettings(newSettings);
+    if (newSettings.logoUrl) {
+      convertUrlToBase64(newSettings.logoUrl).then(b64 => {
+        if (b64) {
+          try {
+            localStorage.setItem('pos_cached_logo_base64', b64);
+            localStorage.setItem('pos_cached_logo_url', newSettings.logoUrl);
+          } catch (_) {}
+          setSettings(prev => ({ ...prev, logoBase64: b64 }));
+        }
+      });
+    }
     try {
       if (newSettings.id) {
         const { error } = await supabase.from('pos_settings').update({

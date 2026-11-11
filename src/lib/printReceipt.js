@@ -118,8 +118,7 @@ export const printThermalReceipt = (elementId = 'print-receipt') => {
   `);
   doc.close();
 
-  // Brief pause for the iframe DOM to settle before printing
-  setTimeout(() => {
+  const triggerPrint = () => {
     try {
       iframe.contentWindow.focus();
       iframe.contentWindow.print();
@@ -127,5 +126,42 @@ export const printThermalReceipt = (elementId = 'print-receipt') => {
       console.error('Print iframe error:', e);
       window.print();
     }
-  }, 250);
+  };
+
+  const images = Array.from(doc.images || []);
+  if (images.length === 0) {
+    // If no images, trigger after a tiny 40ms tick to let DOM layout settle
+    setTimeout(triggerPrint, 40);
+  } else {
+    let printed = false;
+    const safePrint = () => {
+      if (printed) return;
+      printed = true;
+      triggerPrint();
+    };
+
+    const imagePromises = images.map(img => {
+      if (img.complete && img.naturalWidth > 0) {
+        return img.decode ? img.decode().catch(() => {}) : Promise.resolve();
+      }
+      return new Promise(resolve => {
+        img.onload = () => {
+          if (img.decode) {
+            img.decode().catch(() => {}).finally(resolve);
+          } else {
+            resolve();
+          }
+        };
+        img.onerror = resolve;
+      });
+    });
+
+    Promise.all(imagePromises).then(() => {
+      // Images fully decoded and ready to render
+      setTimeout(safePrint, 20);
+    });
+
+    // Fallback safety timeout so printing is never delayed or blocked
+    setTimeout(safePrint, 350);
+  }
 };
