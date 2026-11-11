@@ -508,7 +508,7 @@ const PosReturnsPage = ({ onLogout }) => {
               )}
               <tr>
                 <td style={{ paddingBottom: '4px' }}></td>
-                <td style={{ textAlign: 'left', paddingBottom: '4px', borderLeft: '1px solid #000', paddingLeft: '8px' }}><b>Net Total</b></td>
+                <td style={{ textAlign: 'left', paddingBottom: '4px', borderLeft: '1px solid #000', paddingLeft: '8px' }}><b>Grand Total</b></td>
                 <td style={{ textAlign: 'right', paddingBottom: '4px', fontWeight: 'bold', fontSize: '14.5px' }}>{Number(selectedBill.total).toFixed(2)}</td>
               </tr>
               {(() => {

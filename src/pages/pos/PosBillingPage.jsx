@@ -165,7 +165,7 @@ function ReceiptTemplate({ data, settings }) {
               <div style={{ marginBottom: '8px' }}><b>Items :</b> {items.reduce((sum, i) => sum + (Number(i.quantity) || 0), 0)}</div>
               <div><b>Pay Mode :</b> {data.paymentMode}</div>
             </td>
-            <td style={{ textAlign: 'left', paddingBottom: '4px', borderLeft: '1px solid #000', paddingLeft: '8px', width: '34%' }}><b>Grand Total</b></td>
+            <td style={{ textAlign: 'left', paddingBottom: '4px', borderLeft: '1px solid #000', paddingLeft: '8px', width: '34%' }}><b>Subtotal</b></td>
             <td style={{ textAlign: 'right', paddingBottom: '4px', width: '20%' }}>{Number(data.subtotal || 0).toFixed(2)}</td>
           </tr>
           {settings?.enableGst && (
@@ -177,12 +177,12 @@ function ReceiptTemplate({ data, settings }) {
           )}
           <tr>
             <td style={{ paddingBottom: '4px' }}></td>
-            <td style={{ textAlign: 'left', paddingBottom: '4px', borderLeft: '1px solid #000', paddingLeft: '8px' }}><b>Bill Discount</b></td>
+            <td style={{ textAlign: 'left', paddingBottom: '4px', borderLeft: '1px solid #000', paddingLeft: '8px' }}><b>Discount</b></td>
             <td style={{ textAlign: 'right', paddingBottom: '4px' }}>{Number(data.discount || 0).toFixed(2)}</td>
           </tr>
           <tr>
             <td style={{ paddingBottom: '4px' }}></td>
-            <td style={{ textAlign: 'left', paddingBottom: '4px', borderLeft: '1px solid #000', paddingLeft: '8px' }}><b>Net Total</b></td>
+            <td style={{ textAlign: 'left', paddingBottom: '4px', borderLeft: '1px solid #000', paddingLeft: '8px' }}><b>Grand Total</b></td>
             <td style={{ textAlign: 'right', paddingBottom: '4px', fontWeight: 'bold', fontSize: '14.5px' }}>{Number(data.total || 0).toFixed(2)}</td>
           </tr>
         </tbody>
