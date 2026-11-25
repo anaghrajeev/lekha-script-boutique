@@ -565,7 +565,7 @@ export function PosStoreProvider({ children }) {
           const isLoyaltyEnabled = Boolean(loyaltySettings?.enable_loyalty);
           const rate = Number(loyaltySettings?.points_per_rupee) || 0.01;
           pointsEarned = isLoyaltyEnabled ? Math.floor(total * rate) : 0;
-          const redeemedPoints = isLoyaltyEnabled ? (Number(loyaltyInfo?.redeemedPoints) || 0) : 0;
+          const redeemedPoints = isLoyaltyEnabled ? (Number(loyaltyInfo?.points ?? loyaltyInfo?.redeemedPoints) || 0) : 0;
 
           // Check if customer exists in DB
           const { data: existingCust } = await supabase
@@ -676,7 +676,7 @@ export function PosStoreProvider({ children }) {
         time: finalDate,
         loyalty: cleanPhone && loyaltySettings?.enable_loyalty ? {
           pointsEarned,
-          redeemedPoints: Number(loyaltyInfo?.redeemedPoints) || 0,
+          redeemedPoints: Number(loyaltyInfo?.points ?? loyaltyInfo?.redeemedPoints) || 0,
           balance: pointsBalance
         } : null
       });

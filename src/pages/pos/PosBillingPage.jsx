@@ -583,7 +583,7 @@ const PosBillingPage = ({ onLogout }) => {
         return;
       }
 
-      setLoyaltyRedeemed({ points: ptsToUse, discount: discountToApply });
+      setLoyaltyRedeemed({ points: ptsToUse, redeemedPoints: ptsToUse, discount: discountToApply });
       setDiscountType('amount');
       setDiscountValue(discountToApply);
       toast.success(`Redeemed ${ptsToUse} points for ₹${discountToApply.toFixed(2)} discount!`);
@@ -1034,9 +1034,14 @@ const PosBillingPage = ({ onLogout }) => {
                     }}>
                       {activeCustomer.tier || 'Bronze'}
                     </span>
-                    <span style={{ fontSize: '13px', fontWeight: '700', color: '#16a34a' }}>
-                      ★ {activeCustomer.loyalty_points || 0} pts
+                    <span style={{ fontSize: '13px', fontWeight: '700', color: loyaltyRedeemed ? '#ca8a04' : '#16a34a' }}>
+                      ★ {loyaltyRedeemed ? Math.max(0, (activeCustomer.loyalty_points || 0) - loyaltyRedeemed.points) : (activeCustomer.loyalty_points || 0)} pts
                     </span>
+                    {loyaltyRedeemed && (
+                      <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: '600' }}>
+                        (-{loyaltyRedeemed.points} applied)
+                      </span>
+                    )}
                     {liveLoading && (
                       <span style={{ fontSize: '11px', color: 'var(--on-surface-variant)' }}>
                         (syncing...)
