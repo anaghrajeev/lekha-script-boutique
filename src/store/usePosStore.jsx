@@ -536,16 +536,17 @@ export function PosStoreProvider({ children }) {
         if (updateErr) console.warn('Could not update bill_date:', updateErr);
       }
 
-      // ── Loyalty Points Processing ──
+      // ── Customer CRM & Loyalty Processing ──
       let pointsEarned = 0;
       let pointsBalance = 0;
       const cleanPhone = (customerInfo.phone || '').trim();
 
-      if (cleanPhone && loyaltySettings?.enable_loyalty) {
+      if (cleanPhone) {
         try {
+          const isLoyaltyEnabled = Boolean(loyaltySettings?.enable_loyalty);
           const rate = Number(loyaltySettings?.points_per_rupee) || 0.01;
-          pointsEarned = Math.floor(total * rate);
-          const redeemedPoints = Number(loyaltyInfo?.redeemedPoints) || 0;
+          pointsEarned = isLoyaltyEnabled ? Math.floor(total * rate) : 0;
+          const redeemedPoints = isLoyaltyEnabled ? (Number(loyaltyInfo?.redeemedPoints) || 0) : 0;
 
           // Check if customer exists in DB
           const { data: existingCust } = await supabase
@@ -564,9 +565,10 @@ export function PosStoreProvider({ children }) {
             const newLifetime = Number(existingCust.lifetime_points || 0) + pointsEarned;
             pointsBalance = Math.max(0, Number(existingCust.loyalty_points || 0) - redeemedPoints + pointsEarned);
             const newTier = newSpend >= vipSpend ? 'VIP' : newSpend >= goldSpend ? 'Gold' : newSpend >= silverSpend ? 'Silver' : 'Bronze';
+            const resolvedName = customerInfo.name?.trim() || existingCust.name || `Customer (${cleanPhone})`;
 
             await supabase.from('customers').update({
-              name: customerInfo.name?.trim() || existingCust.name,
+              name: resolvedName,
               total_spend: newSpend,
               visit_count: newVisits,
               loyalty_points: pointsBalance,
@@ -578,6 +580,7 @@ export function PosStoreProvider({ children }) {
             // Update in-memory customers state immediately
             setCustomers(prev => prev.map(c => c.id === existingCust.id ? {
               ...c,
+              name: resolvedName,
               total_spend: newSpend,
               visit_count: newVisits,
               loyalty_points: pointsBalance,
@@ -586,31 +589,34 @@ export function PosStoreProvider({ children }) {
               last_visit_at: finalDate.toISOString()
             } : c));
 
-            if (redeemedPoints > 0) {
-              await supabase.from('loyalty_transactions').insert([{
-                customer_id: existingCust.id,
-                points: -redeemedPoints,
-                type: 'redeem_pos',
-                bill_id: data.bill_id,
-                description: `Redeemed at checkout for Bill #${data.bill_no}`
-              }]).catch(() => {});
-            }
-            if (pointsEarned > 0) {
-              await supabase.from('loyalty_transactions').insert([{
-                customer_id: existingCust.id,
-                points: pointsEarned,
-                type: 'earn_pos',
-                bill_id: data.bill_id,
-                description: `Earned from POS Bill #${data.bill_no}`
-              }]).catch(() => {});
+            if (isLoyaltyEnabled) {
+              if (redeemedPoints > 0) {
+                await supabase.from('loyalty_transactions').insert([{
+                  customer_id: existingCust.id,
+                  points: -redeemedPoints,
+                  type: 'redeem_pos',
+                  bill_id: data.bill_id,
+                  description: `Redeemed at checkout for Bill #${data.bill_no}`
+                }]).catch(() => {});
+              }
+              if (pointsEarned > 0) {
+                await supabase.from('loyalty_transactions').insert([{
+                  customer_id: existingCust.id,
+                  points: pointsEarned,
+                  type: 'earn_pos',
+                  bill_id: data.bill_id,
+                  description: `Earned from POS Bill #${data.bill_no}`
+                }]).catch(() => {});
+              }
             }
           } else {
             // New customer registration on-the-fly
             pointsBalance = pointsEarned;
             const newTier = total >= vipSpend ? 'VIP' : total >= goldSpend ? 'Gold' : total >= silverSpend ? 'Silver' : 'Bronze';
+            const newCustName = customerInfo.name?.trim() || `Customer (${cleanPhone})`;
 
             const { data: createdCust } = await supabase.from('customers').insert([{
-              name: customerInfo.name?.trim() || 'Walk-in',
+              name: newCustName,
               phone: cleanPhone,
               total_spend: total,
               visit_count: 1,
@@ -622,7 +628,7 @@ export function PosStoreProvider({ children }) {
 
             if (createdCust) {
               setCustomers(prev => [createdCust, ...prev]);
-              if (pointsEarned > 0) {
+              if (isLoyaltyEnabled && pointsEarned > 0) {
                 await supabase.from('loyalty_transactions').insert([{
                   customer_id: createdCust.id,
                   points: pointsEarned,
@@ -633,8 +639,8 @@ export function PosStoreProvider({ children }) {
               }
             }
           }
-        } catch (loyaltyErr) {
-          console.warn('Loyalty sync error (skipped non-blocking):', loyaltyErr);
+        } catch (crmErr) {
+          console.warn('CRM sync error (skipped non-blocking):', crmErr);
         }
       }
       

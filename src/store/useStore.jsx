@@ -358,13 +358,14 @@ export function StoreProvider({ children }) {
     const { error: itemsErr } = await supabase.from('online_order_items').insert(orderItems);
     if (itemsErr) throw itemsErr;
 
-    // ── Omnichannel Loyalty Sync ──
+    // ── Omnichannel CRM & Loyalty Sync ──
     const cleanPhone = (customerDetails.phone || '').trim();
-    if (cleanPhone && loyaltySettings?.enable_loyalty) {
+    if (cleanPhone) {
       try {
+        const isLoyaltyEnabled = Boolean(loyaltySettings?.enable_loyalty);
         const rate = Number(loyaltySettings?.points_per_rupee) || 0.01;
-        const pointsEarned = Math.floor(finalTotal * rate);
-        const redeemedPoints = Number(loyaltyRedemption?.points) || 0;
+        const pointsEarned = isLoyaltyEnabled ? Math.floor(finalTotal * rate) : 0;
+        const redeemedPoints = isLoyaltyEnabled ? (Number(loyaltyRedemption?.points) || 0) : 0;
 
         const { data: existingCust } = await supabase
           .from('customers')
@@ -382,9 +383,10 @@ export function StoreProvider({ children }) {
           const newLifetime = Number(existingCust.lifetime_points || 0) + pointsEarned;
           const pointsBalance = Math.max(0, Number(existingCust.loyalty_points || 0) - redeemedPoints + pointsEarned);
           const newTier = newSpend >= vipSpend ? 'VIP' : newSpend >= goldSpend ? 'Gold' : newSpend >= silverSpend ? 'Silver' : 'Bronze';
+          const resolvedName = customerDetails.name?.trim() || existingCust.name || `Customer (${cleanPhone})`;
 
           await supabase.from('customers').update({
-            name: customerDetails.name?.trim() || existingCust.name,
+            name: resolvedName,
             address: customerDetails.address?.trim() || existingCust.address,
             total_spend: newSpend,
             visit_count: newVisits,
@@ -394,28 +396,32 @@ export function StoreProvider({ children }) {
             last_visit_at: new Date().toISOString()
           }).eq('id', existingCust.id);
 
-          if (redeemedPoints > 0) {
-            await supabase.from('loyalty_transactions').insert([{
-              customer_id: existingCust.id,
-              points: -redeemedPoints,
-              type: 'redeem_online',
-              order_id: newOrder.id,
-              description: `Redeemed on Online Order #${orderNo}`
-            }]).catch(() => {});
-          }
-          if (pointsEarned > 0) {
-            await supabase.from('loyalty_transactions').insert([{
-              customer_id: existingCust.id,
-              points: pointsEarned,
-              type: 'earn_online',
-              order_id: newOrder.id,
-              description: `Earned from Online Order #${orderNo}`
-            }]).catch(() => {});
+          if (isLoyaltyEnabled) {
+            if (redeemedPoints > 0) {
+              await supabase.from('loyalty_transactions').insert([{
+                customer_id: existingCust.id,
+                points: -redeemedPoints,
+                type: 'redeem_online',
+                order_id: newOrder.id,
+                description: `Redeemed on Online Order #${orderNo}`
+              }]).catch(() => {});
+            }
+            if (pointsEarned > 0) {
+              await supabase.from('loyalty_transactions').insert([{
+                customer_id: existingCust.id,
+                points: pointsEarned,
+                type: 'earn_online',
+                order_id: newOrder.id,
+                description: `Earned from Online Order #${orderNo}`
+              }]).catch(() => {});
+            }
           }
         } else {
           const newTier = finalTotal >= vipSpend ? 'VIP' : finalTotal >= goldSpend ? 'Gold' : finalTotal >= silverSpend ? 'Silver' : 'Bronze';
+          const newCustName = customerDetails.name?.trim() || `Customer (${cleanPhone})`;
+
           const { data: createdCust } = await supabase.from('customers').insert([{
-            name: customerDetails.name?.trim() || 'Online Customer',
+            name: newCustName,
             phone: cleanPhone,
             address: customerDetails.address?.trim() || null,
             total_spend: finalTotal,
@@ -426,7 +432,7 @@ export function StoreProvider({ children }) {
             last_visit_at: new Date().toISOString()
           }]).select().single().catch(() => ({ data: null }));
 
-          if (createdCust && pointsEarned > 0) {
+          if (createdCust && isLoyaltyEnabled && pointsEarned > 0) {
             await supabase.from('loyalty_transactions').insert([{
               customer_id: createdCust.id,
               points: pointsEarned,
@@ -436,8 +442,8 @@ export function StoreProvider({ children }) {
             }]).catch(() => {});
           }
         }
-      } catch (loyaltyErr) {
-        console.warn('Online loyalty sync skipped non-blocking:', loyaltyErr);
+      } catch (crmErr) {
+        console.warn('Online CRM sync skipped non-blocking:', crmErr);
       }
     }
     
