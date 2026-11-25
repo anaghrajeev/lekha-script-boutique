@@ -6,7 +6,7 @@ import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase.js';
 import { generateBatchNumber } from '../../lib/batchUtils.js';
 import { printThermalReceipt } from '../../lib/printReceipt.js';
-import { broadcastStockChange } from '../../lib/stockSync.js';
+import { broadcastStockChange, onStockChange } from '../../lib/stockSync.js';
 
 function formatReceiptSize(rawSize) {
   if (!rawSize) return '-';
@@ -277,6 +277,8 @@ const PosBillingPage = ({ onLogout }) => {
   const [miscPrice, setMiscPrice] = useState('');
   const [showParkedDialog, setShowParkedDialog] = useState(false);
   const [billingDate, setBillingDate] = useState(() => getTodayDateString());
+  const [liveCustomer, setLiveCustomer] = useState(null);
+  const [liveLoading, setLiveLoading] = useState(false);
 
   // Quick Add Stock Batch State from POS
   const [addBatchProduct, setAddBatchProduct] = useState(null);
@@ -474,7 +476,7 @@ const PosBillingPage = ({ onLogout }) => {
     }
   };
 
-  // Match existing customer from phone input
+  // Match existing customer from in-memory cache
   const matchedCustomer = useMemo(() => {
     const rawPhone = (customerInfo.phone || '').trim().replace(/\D/g, '');
     if (!rawPhone || rawPhone.length < 5) return null;
@@ -484,12 +486,79 @@ const PosBillingPage = ({ onLogout }) => {
     });
   }, [customerInfo.phone, customers]);
 
+  // Combined active customer: prioritize liveCustomer (freshly queried directly from Supabase for this phone),
+  // otherwise fallback to matchedCustomer from in-memory cache
+  const activeCustomer = useMemo(() => {
+    if (liveCustomer) return liveCustomer;
+    return matchedCustomer;
+  }, [liveCustomer, matchedCustomer]);
+
+  // Real-time live customer fetch: whenever cashier enters a 10-digit phone number, fetch directly from Supabase
+  useEffect(() => {
+    const rawPhone = (customerInfo.phone || '').trim().replace(/\D/g, '');
+    if (rawPhone.length < 10) {
+      setLiveCustomer(null);
+      return;
+    }
+
+    let isMounted = true;
+    const lookupPhone = rawPhone.slice(-10);
+
+    const fetchLiveCustomer = async () => {
+      try {
+        setLiveLoading(true);
+        const { data, error } = await supabase
+          .from('customers')
+          .select('*')
+          .or(`phone.eq.${rawPhone},phone.eq.${lookupPhone},phone.like.%${lookupPhone}`)
+          .limit(1)
+          .maybeSingle();
+
+        if (!error && data && isMounted) {
+          setLiveCustomer(data);
+          // Auto-fill customer name if not entered
+          if (data.name && !customerInfo.name) {
+            setCustomerInfo(prev => ({ ...prev, name: data.name }));
+          }
+        }
+      } catch (err) {
+        console.warn('Live customer fetch error:', err);
+      } finally {
+        if (isMounted) setLiveLoading(false);
+      }
+    };
+
+    fetchLiveCustomer();
+
+    // Listen for cross-tab or in-app changes (checkout, return, bill delete) to re-fetch live points immediately
+    const unsub = onStockChange((payload) => {
+      if (payload?.type === 'CUSTOMER_UPDATED' || payload?.type === 'CHECKOUT' || payload?.type === 'RETURN_PROCESSED' || payload?.type === 'DELETE_BILL') {
+        fetchLiveCustomer();
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      unsub();
+    };
+  }, [customerInfo.phone]);
+
+  // Keep liveCustomer synchronized whenever in-memory customers in usePosStore updates (via Realtime subscription)
+  useEffect(() => {
+    if (liveCustomer && customers?.length > 0) {
+      const updated = customers.find(c => c.id === liveCustomer.id);
+      if (updated && (updated.loyalty_points !== liveCustomer.loyalty_points || updated.total_spend !== liveCustomer.total_spend || updated.tier !== liveCustomer.tier)) {
+        setLiveCustomer(updated);
+      }
+    }
+  }, [customers, liveCustomer]);
+
   // Auto-fill customer name if matched from CRM and name is empty
   useEffect(() => {
-    if (matchedCustomer?.name && !customerInfo.name) {
-      setCustomerInfo(prev => ({ ...prev, name: matchedCustomer.name }));
+    if (activeCustomer?.name && !customerInfo.name) {
+      setCustomerInfo(prev => ({ ...prev, name: activeCustomer.name }));
     }
-  }, [matchedCustomer]);
+  }, [activeCustomer]);
 
   const handleToggleRedeemPoints = () => {
     if (loyaltyRedeemed) {
@@ -498,8 +567,8 @@ const PosBillingPage = ({ onLogout }) => {
       setDiscountType('amount');
       toast.success('Loyalty points discount removed');
     } else {
-      if (!matchedCustomer) return;
-      const pts = Number(matchedCustomer.loyalty_points) || 0;
+      if (!activeCustomer) return;
+      const pts = Number(activeCustomer.loyalty_points) || 0;
       const minPts = Number(loyaltySettings?.min_points_to_redeem) || 50;
       if (pts < minPts) {
         toast.error(`Minimum ${minPts} points required to redeem (Customer has ${pts} pts)`);
@@ -574,6 +643,7 @@ const PosBillingPage = ({ onLogout }) => {
     setPaymentMode('UPI');
     setSearchTerm('');
     setBillingDate(getTodayDateString());
+    setLiveCustomer(null);
   };
 
   const handlePrintAndCloseCheckoutDialog = () => {
@@ -944,7 +1014,7 @@ const PosBillingPage = ({ onLogout }) => {
             />
 
             {/* Loyalty Badge & 1-Click Points Redemption */}
-            {matchedCustomer && (
+            {activeCustomer && (
               <div style={{
                 marginTop: '8px',
                 padding: '10px 12px',
@@ -958,18 +1028,23 @@ const PosBillingPage = ({ onLogout }) => {
                     <span style={{
                       display: 'inline-block', padding: '2px 7px', borderRadius: '10px',
                       fontSize: '11px', fontWeight: '700',
-                      backgroundColor: getTierColor(matchedCustomer.tier).bg,
-                      color: getTierColor(matchedCustomer.tier).text,
-                      border: `1px solid ${getTierColor(matchedCustomer.tier).border}`
+                      backgroundColor: getTierColor(activeCustomer.tier).bg,
+                      color: getTierColor(activeCustomer.tier).text,
+                      border: `1px solid ${getTierColor(activeCustomer.tier).border}`
                     }}>
-                      {matchedCustomer.tier || 'Bronze'}
+                      {activeCustomer.tier || 'Bronze'}
                     </span>
                     <span style={{ fontSize: '13px', fontWeight: '700', color: '#16a34a' }}>
-                      ★ {matchedCustomer.loyalty_points || 0} pts
+                      ★ {activeCustomer.loyalty_points || 0} pts
                     </span>
+                    {liveLoading && (
+                      <span style={{ fontSize: '11px', color: 'var(--on-surface-variant)' }}>
+                        (syncing...)
+                      </span>
+                    )}
                   </div>
                   <span style={{ fontSize: '11.5px', color: 'var(--on-surface-variant)' }}>
-                    {matchedCustomer.visit_count || 1} visit{(matchedCustomer.visit_count || 1) !== 1 ? 's' : ''} • ₹{Number(matchedCustomer.total_spend || 0).toLocaleString('en-IN')}
+                    {activeCustomer.visit_count || 1} visit{(activeCustomer.visit_count || 1) !== 1 ? 's' : ''} • ₹{Number(activeCustomer.total_spend || 0).toLocaleString('en-IN')}
                   </span>
                 </div>
 
@@ -982,8 +1057,8 @@ const PosBillingPage = ({ onLogout }) => {
                         </span>
                       ) : (
                         <span>
-                          Value: ₹{((matchedCustomer.loyalty_points || 0) * (loyaltySettings?.rupees_per_point || loyaltySettings?.rupee_per_point || 1)).toFixed(2)}
-                          {Number(matchedCustomer.loyalty_points || 0) < (loyaltySettings?.min_points_to_redeem || 50) && (
+                          Value: ₹{((activeCustomer.loyalty_points || 0) * (loyaltySettings?.rupees_per_point || loyaltySettings?.rupee_per_point || 1)).toFixed(2)}
+                          {Number(activeCustomer.loyalty_points || 0) < (loyaltySettings?.min_points_to_redeem || 50) && (
                             <span style={{ fontSize: '11px', color: 'var(--on-surface-variant)', marginLeft: '4px' }}>
                               (Min {loyaltySettings?.min_points_to_redeem || 50} pts to redeem)
                             </span>
@@ -995,7 +1070,7 @@ const PosBillingPage = ({ onLogout }) => {
                     <button
                       type="button"
                       onClick={handleToggleRedeemPoints}
-                      disabled={!loyaltyRedeemed && (Number(matchedCustomer.loyalty_points || 0) < (loyaltySettings?.min_points_to_redeem || 50) || cartSubtotal <= 0)}
+                      disabled={!loyaltyRedeemed && (Number(activeCustomer.loyalty_points || 0) < (loyaltySettings?.min_points_to_redeem || 50) || cartSubtotal <= 0)}
                       style={{
                         padding: '4px 10px',
                         fontSize: '11.5px',
@@ -1004,8 +1079,8 @@ const PosBillingPage = ({ onLogout }) => {
                         border: loyaltyRedeemed ? '1px solid var(--error)' : '1px solid #16a34a',
                         backgroundColor: loyaltyRedeemed ? 'transparent' : '#16a34a',
                         color: loyaltyRedeemed ? 'var(--error)' : '#ffffff',
-                        cursor: (!loyaltyRedeemed && (Number(matchedCustomer.loyalty_points || 0) < (loyaltySettings?.min_points_to_redeem || 50) || cartSubtotal <= 0)) ? 'not-allowed' : 'pointer',
-                        opacity: (!loyaltyRedeemed && (Number(matchedCustomer.loyalty_points || 0) < (loyaltySettings?.min_points_to_redeem || 50) || cartSubtotal <= 0)) ? 0.5 : 1,
+                        cursor: (!loyaltyRedeemed && (Number(activeCustomer.loyalty_points || 0) < (loyaltySettings?.min_points_to_redeem || 50) || cartSubtotal <= 0)) ? 'not-allowed' : 'pointer',
+                        opacity: (!loyaltyRedeemed && (Number(activeCustomer.loyalty_points || 0) < (loyaltySettings?.min_points_to_redeem || 50) || cartSubtotal <= 0)) ? 0.5 : 1,
                         transition: 'all 0.15s ease'
                       }}
                     >

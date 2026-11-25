@@ -90,6 +90,23 @@ ALTER TABLE loyalty_transactions ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Public full access loyalty_transactions" ON loyalty_transactions;
 CREATE POLICY "Public full access loyalty_transactions" ON loyalty_transactions FOR ALL TO public USING (true) WITH CHECK (true);
 
+-- Enable Realtime publication for CRM & Loyalty tables
+DO $$
+BEGIN
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE customers;
+  EXCEPTION WHEN duplicate_object THEN NULL;
+  END;
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE loyalty_settings;
+  EXCEPTION WHEN duplicate_object THEN NULL;
+  END;
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE loyalty_transactions;
+  EXCEPTION WHEN duplicate_object THEN NULL;
+  END;
+END $$;
+
 -- ==============================================================================
 -- 4. Historical Backfill from existing Bills and Online Orders
 -- ==============================================================================

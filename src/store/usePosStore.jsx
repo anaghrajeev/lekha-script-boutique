@@ -316,6 +316,7 @@ export function PosStoreProvider({ children }) {
     fetchPosSettings();
     fetchSuppliers();
     fetchLoyaltySettings();
+    fetchCustomers();
     try {
       const batchesData = await fetchAllRows(
         'batches',
@@ -329,32 +330,49 @@ export function PosStoreProvider({ children }) {
     } finally {
       setLoading(false);
     }
-  }, [fetchPosSettings, fetchSuppliers, fetchLoyaltySettings]);
+  }, [fetchPosSettings, fetchSuppliers, fetchLoyaltySettings, fetchCustomers]);
 
   useEffect(() => {
     fetchPosData();
   }, [fetchPosData]);
 
-  // ── Realtime & Cross-tab Stock Synchronization ──────────────────────────
+  // ── Realtime & Cross-tab Stock & Customer Synchronization ──────────────────
   useEffect(() => {
-    // 1. Cross-tab and in-memory stock changes
-    const unsubscribe = onStockChange(() => {
+    // 1. Cross-tab and in-memory changes
+    const unsubscribe = onStockChange((payload) => {
       fetchPosData();
+      if (payload?.type === 'CUSTOMER_UPDATED' || payload?.type === 'CHECKOUT' || payload?.type === 'RETURN_PROCESSED' || payload?.type === 'DELETE_BILL') {
+        fetchCustomers();
+      }
     });
 
-    // 2. Supabase Realtime channel
-    const channel = supabase
+    // 2. Supabase Realtime channel for Batches and Customers
+    const batchesChannel = supabase
       .channel('realtime_batches_pos')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'batches' }, () => {
         fetchPosData();
       })
       .subscribe();
 
-    // 3. Tab visibility / window focus revalidation (throttled to at most once per 8 seconds)
+    const customersChannel = supabase
+      .channel('realtime_customers_pos')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, (payload) => {
+        if (payload.new && payload.new.id) {
+          setCustomers(prev => {
+            const exists = prev.some(c => c.id === payload.new.id);
+            return exists ? prev.map(c => c.id === payload.new.id ? payload.new : c) : [payload.new, ...prev];
+          });
+        } else {
+          fetchCustomers();
+        }
+      })
+      .subscribe();
+
+    // 3. Tab visibility / window focus revalidation (throttled to at most once per 6 seconds)
     let lastFocusSync = 0;
     const handleFocusOrVisible = () => {
       const now = Date.now();
-      if (now - lastFocusSync > 8000) {
+      if (now - lastFocusSync > 6000) {
         lastFocusSync = now;
         fetchPosData();
       }
@@ -370,11 +388,12 @@ export function PosStoreProvider({ children }) {
 
     return () => {
       unsubscribe();
-      supabase.removeChannel(channel);
+      supabase.removeChannel(batchesChannel);
+      supabase.removeChannel(customersChannel);
       window.removeEventListener('focus', handleFocusOrVisible);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [fetchPosData]);
+  }, [fetchPosData, fetchCustomers]);
 
   const fetchBills = useCallback(async (limit = 50) => {
     try {
