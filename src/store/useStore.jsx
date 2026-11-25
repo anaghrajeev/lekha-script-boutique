@@ -46,7 +46,7 @@ export function StoreProvider({ children }) {
     setLoading(true);
     setError(null);
     try {
-      const [prods, batchesData, { data: settingsData, error: e3 }, { data: loyaltyData }] =
+      const [prods, batchesData, { data: settingsData, error: e3 }, loyaltyRes] =
         await Promise.all([
           fetchAllRows(
             'products',
@@ -59,7 +59,7 @@ export function StoreProvider({ children }) {
             (q) => q.order('created_at', { ascending: false })
           ),
           supabase.from('store_settings').select('*').limit(1).maybeSingle(),
-          supabase.from('loyalty_settings').select('*').limit(1).maybeSingle().catch(() => ({ data: null })),
+          supabase.from('loyalty_settings').select('*').limit(1).maybeSingle(),
         ]);
 
       if (e3) console.warn("Failed to load store settings", e3);
@@ -67,7 +67,7 @@ export function StoreProvider({ children }) {
       setProducts(prods || []);
       setBatches(batchesData || []);
       setStoreSettings(settingsData || { delivery_charge: 0, free_delivery_threshold: 0 });
-      if (loyaltyData) setLoyaltySettings(loyaltyData);
+      if (loyaltyRes?.data) setLoyaltySettings(loyaltyRes.data);
     } catch (err) {
       console.error('Supabase fetch error:', err);
       setError(err?.message || 'Failed to load data.');
