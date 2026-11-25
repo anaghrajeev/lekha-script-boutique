@@ -2036,6 +2036,13 @@ export default function AdminPanel({ onLogout }) {
               <h2>Retail POS</h2>
               <p>Physical store billing, sales & returns, and analytics.</p>
             </div>
+
+            {/* Customer CRM & Loyalty Card */}
+            <div className="admin-dash-card" onClick={() => navigate('#/pos/crm')} id="admin-dash-crm">
+              <span className="material-symbols-outlined" style={{ color: 'var(--primary)' }}>loyalty</span>
+              <h2>CRM & Loyalty</h2>
+              <p>Customer directory, lifetime spend, loyalty rewards, tiers, and sizing insights.</p>
+            </div>
           </div>
         ) : activeTab === 'orders' ? (
           <>
