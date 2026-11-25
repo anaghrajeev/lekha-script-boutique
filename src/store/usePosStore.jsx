@@ -57,6 +57,167 @@ export function PosStoreProvider({ children }) {
     };
   });
 
+  // ── CRM & Loyalty State ──────────────────────────────────────────────────
+  const [customers, setCustomers] = useState([]);
+  const [loyaltySettings, setLoyaltySettings] = useState({
+    points_per_rupee: 0.01,
+    rupees_per_point: 1.0,
+    min_points_to_redeem: 50,
+    bronze_min_spend: 0,
+    silver_min_spend: 5000,
+    gold_min_spend: 15000,
+    vip_min_spend: 30000,
+    enable_loyalty: true
+  });
+  const [crmLoading, setCrmLoading] = useState(false);
+
+  const fetchLoyaltySettings = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.from('loyalty_settings').select('*').limit(1);
+      if (!error && data && data.length > 0) {
+        setLoyaltySettings(data[0]);
+      }
+    } catch (err) {
+      console.warn('Fetch loyalty settings error (using defaults):', err);
+    }
+  }, []);
+
+  const updateLoyaltySettings = useCallback(async (newSettings) => {
+    setLoyaltySettings(newSettings);
+    try {
+      if (newSettings.id) {
+        const { error } = await supabase.from('loyalty_settings').update(newSettings).eq('id', newSettings.id);
+        if (error) throw error;
+      } else {
+        const { data, error } = await supabase.from('loyalty_settings').insert([newSettings]).select().single();
+        if (error) throw error;
+        if (data) setLoyaltySettings(data);
+      }
+    } catch (err) {
+      console.error('Update loyalty settings error:', err);
+      throw err;
+    }
+  }, []);
+
+  const fetchCustomers = useCallback(async () => {
+    setCrmLoading(true);
+    try {
+      // 1. Try fetching from customers table
+      const { data, error } = await supabase.from('customers').select('*').order('total_spend', { ascending: false });
+      if (!error && data && data.length > 0) {
+        setCustomers(data);
+        return data;
+      }
+      
+      // 2. Fallback: if table doesn't exist yet, construct customer insights from bills
+      const { data: billsData } = await supabase
+        .from('bills')
+        .select('*, items:bill_items(*, product:products(name, category, size))')
+        .order('created_at', { ascending: false });
+      
+      const phoneMap = new Map();
+      (billsData || []).forEach(b => {
+        const rawPhone = (b.customer_phone || '').trim();
+        if (!rawPhone) return;
+        const phone = rawPhone;
+        const total = Number(b.total) || 0;
+        const date = b.bill_date || b.created_at;
+
+        if (!phoneMap.has(phone)) {
+          phoneMap.set(phone, {
+            id: `temp-${phone}`,
+            name: b.customer_name?.trim() || 'Walk-in',
+            phone: phone,
+            total_spend: total,
+            visit_count: 1,
+            loyalty_points: Math.floor(total * 0.01),
+            lifetime_points: Math.floor(total * 0.01),
+            tier: total >= 30000 ? 'VIP' : total >= 15000 ? 'Gold' : total >= 5000 ? 'Silver' : 'Bronze',
+            last_visit_at: date,
+            created_at: date,
+            bills: [b]
+          });
+        } else {
+          const c = phoneMap.get(phone);
+          c.total_spend += total;
+          c.visit_count += 1;
+          c.loyalty_points += Math.floor(total * 0.01);
+          c.lifetime_points += Math.floor(total * 0.01);
+          c.tier = c.total_spend >= 30000 ? 'VIP' : c.total_spend >= 15000 ? 'Gold' : c.total_spend >= 5000 ? 'Silver' : 'Bronze';
+          if (new Date(date) > new Date(c.last_visit_at)) {
+            c.last_visit_at = date;
+          }
+          if (b.customer_name && b.customer_name !== 'Walk-in') {
+            c.name = b.customer_name;
+          }
+          c.bills.push(b);
+        }
+      });
+
+      const aggregated = Array.from(phoneMap.values()).sort((a, b) => b.total_spend - a.total_spend);
+      setCustomers(aggregated);
+      return aggregated;
+    } catch (err) {
+      console.error('Fetch customers error:', err);
+      return [];
+    } finally {
+      setCrmLoading(false);
+    }
+  }, []);
+
+  const addCustomer = useCallback(async (customerData) => {
+    try {
+      const { data, error } = await supabase.from('customers').insert([customerData]).select().single();
+      if (error) throw error;
+      setCustomers(prev => [data, ...prev]);
+      return data;
+    } catch (err) {
+      console.error('Add customer error:', err);
+      throw err;
+    }
+  }, []);
+
+  const updateCustomer = useCallback(async (id, updates) => {
+    try {
+      const { data, error } = await supabase.from('customers').update(updates).eq('id', id).select().single();
+      if (error) throw error;
+      setCustomers(prev => prev.map(c => c.id === id ? { ...c, ...data } : c));
+      return data;
+    } catch (err) {
+      console.error('Update customer error:', err);
+      throw err;
+    }
+  }, []);
+
+  const deleteCustomer = useCallback(async (id) => {
+    try {
+      const { error } = await supabase.from('customers').delete().eq('id', id);
+      if (error) throw error;
+      setCustomers(prev => prev.filter(c => c.id !== id));
+      return true;
+    } catch (err) {
+      console.error('Delete customer error:', err);
+      throw err;
+    }
+  }, []);
+
+  const fetchCustomerHistory = useCallback(async (phone) => {
+    if (!phone) return { bills: [], onlineOrders: [] };
+    try {
+      const [billsRes, ordersRes] = await Promise.all([
+        supabase.from('bills').select('*, items:bill_items(*, product:products(name, model, category, size))').eq('customer_phone', phone).order('created_at', { ascending: false }),
+        supabase.from('online_orders').select('*, items:online_order_items(*, product:products(name, model, category, size))').eq('customer_phone', phone).order('created_at', { ascending: false })
+      ]);
+      return {
+        bills: billsRes.data || [],
+        onlineOrders: ordersRes.data || []
+      };
+    } catch (err) {
+      console.error('Fetch customer history error:', err);
+      return { bills: [], onlineOrders: [] };
+    }
+  }, []);
+
   const fetchPosSettings = useCallback(async () => {
     try {
       const { data, error } = await supabase.from('pos_settings').select('*').limit(1);
@@ -154,6 +315,7 @@ export function PosStoreProvider({ children }) {
     setLoading(true);
     fetchPosSettings();
     fetchSuppliers();
+    fetchLoyaltySettings();
     try {
       const batchesData = await fetchAllRows(
         'batches',
@@ -167,7 +329,7 @@ export function PosStoreProvider({ children }) {
     } finally {
       setLoading(false);
     }
-  }, [fetchPosSettings]);
+  }, [fetchPosSettings, fetchSuppliers, fetchLoyaltySettings]);
 
   useEffect(() => {
     fetchPosData();
@@ -312,7 +474,7 @@ export function PosStoreProvider({ children }) {
   }, []);
 
   // Checkout
-  const checkoutPos = useCallback(async (paymentMode = 'UPI', tax = 0, discount = 0, customBillingDate = null) => {
+  const checkoutPos = useCallback(async (paymentMode = 'UPI', tax = 0, discount = 0, customBillingDate = null, loyaltyInfo = null) => {
     if (posCart.length === 0) throw new Error('Cart is empty');
     
     const subtotal = posCart.reduce((sum, item) => sum + item.subtotal, 0);
@@ -373,6 +535,108 @@ export function PosStoreProvider({ children }) {
           .eq('id', data.bill_id);
         if (updateErr) console.warn('Could not update bill_date:', updateErr);
       }
+
+      // ── Loyalty Points Processing ──
+      let pointsEarned = 0;
+      let pointsBalance = 0;
+      const cleanPhone = (customerInfo.phone || '').trim();
+
+      if (cleanPhone && loyaltySettings?.enable_loyalty) {
+        try {
+          const rate = Number(loyaltySettings?.points_per_rupee) || 0.01;
+          pointsEarned = Math.floor(total * rate);
+          const redeemedPoints = Number(loyaltyInfo?.redeemedPoints) || 0;
+
+          // Check if customer exists in DB
+          const { data: existingCust } = await supabase
+            .from('customers')
+            .select('*')
+            .eq('phone', cleanPhone)
+            .maybeSingle();
+
+          const vipSpend = Number(loyaltySettings?.vip_min_spend) || 30000;
+          const goldSpend = Number(loyaltySettings?.gold_min_spend) || 15000;
+          const silverSpend = Number(loyaltySettings?.silver_min_spend) || 5000;
+
+          if (existingCust) {
+            const newSpend = Number(existingCust.total_spend || 0) + total;
+            const newVisits = Number(existingCust.visit_count || 0) + 1;
+            const newLifetime = Number(existingCust.lifetime_points || 0) + pointsEarned;
+            pointsBalance = Math.max(0, Number(existingCust.loyalty_points || 0) - redeemedPoints + pointsEarned);
+            const newTier = newSpend >= vipSpend ? 'VIP' : newSpend >= goldSpend ? 'Gold' : newSpend >= silverSpend ? 'Silver' : 'Bronze';
+
+            await supabase.from('customers').update({
+              name: customerInfo.name?.trim() || existingCust.name,
+              total_spend: newSpend,
+              visit_count: newVisits,
+              loyalty_points: pointsBalance,
+              lifetime_points: newLifetime,
+              tier: newTier,
+              last_visit_at: finalDate.toISOString()
+            }).eq('id', existingCust.id);
+
+            // Update in-memory customers state immediately
+            setCustomers(prev => prev.map(c => c.id === existingCust.id ? {
+              ...c,
+              total_spend: newSpend,
+              visit_count: newVisits,
+              loyalty_points: pointsBalance,
+              lifetime_points: newLifetime,
+              tier: newTier,
+              last_visit_at: finalDate.toISOString()
+            } : c));
+
+            if (redeemedPoints > 0) {
+              await supabase.from('loyalty_transactions').insert([{
+                customer_id: existingCust.id,
+                points: -redeemedPoints,
+                type: 'redeem_pos',
+                bill_id: data.bill_id,
+                description: `Redeemed at checkout for Bill #${data.bill_no}`
+              }]).catch(() => {});
+            }
+            if (pointsEarned > 0) {
+              await supabase.from('loyalty_transactions').insert([{
+                customer_id: existingCust.id,
+                points: pointsEarned,
+                type: 'earn_pos',
+                bill_id: data.bill_id,
+                description: `Earned from POS Bill #${data.bill_no}`
+              }]).catch(() => {});
+            }
+          } else {
+            // New customer registration on-the-fly
+            pointsBalance = pointsEarned;
+            const newTier = total >= vipSpend ? 'VIP' : total >= goldSpend ? 'Gold' : total >= silverSpend ? 'Silver' : 'Bronze';
+
+            const { data: createdCust } = await supabase.from('customers').insert([{
+              name: customerInfo.name?.trim() || 'Walk-in',
+              phone: cleanPhone,
+              total_spend: total,
+              visit_count: 1,
+              loyalty_points: pointsEarned,
+              lifetime_points: pointsEarned,
+              tier: newTier,
+              last_visit_at: finalDate.toISOString()
+            }]).select().single().catch(() => ({ data: null }));
+
+            if (createdCust) {
+              setCustomers(prev => [createdCust, ...prev]);
+              if (pointsEarned > 0) {
+                await supabase.from('loyalty_transactions').insert([{
+                  customer_id: createdCust.id,
+                  points: pointsEarned,
+                  type: 'earn_pos',
+                  bill_id: data.bill_id,
+                  description: `First purchase rewards from POS Bill #${data.bill_no}`
+                }]).catch(() => {});
+              }
+            }
+          }
+        } catch (loyaltyErr) {
+          console.warn('Loyalty sync error (skipped non-blocking):', loyaltyErr);
+        }
+      }
       
       // Save for "Reprint Last Bill" feature
       setLastBillData({
@@ -384,7 +648,12 @@ export function PosStoreProvider({ children }) {
         discount,
         total,
         paymentMode,
-        time: finalDate
+        time: finalDate,
+        loyalty: cleanPhone && loyaltySettings?.enable_loyalty ? {
+          pointsEarned,
+          redeemedPoints: Number(loyaltyInfo?.redeemedPoints) || 0,
+          balance: pointsBalance
+        } : null
       });
 
       // Optimistically decrement sold batch quantities in memory right away so stock adjusts with 0ms lag
@@ -531,7 +800,17 @@ export function PosStoreProvider({ children }) {
     fetchSuppliers,
     addSupplier,
     updateSupplier,
-    deleteSupplier
+    deleteSupplier,
+    customers,
+    fetchCustomers,
+    addCustomer,
+    updateCustomer,
+    deleteCustomer,
+    loyaltySettings,
+    fetchLoyaltySettings,
+    updateLoyaltySettings,
+    fetchCustomerHistory,
+    crmLoading
   };
 
   return <PosStoreContext.Provider value={value}>{children}</PosStoreContext.Provider>;

@@ -28,6 +28,12 @@ export function StoreProvider({ children }) {
   const [batches,        setBatches]        = useState([]);
   const [onlineOrders,   setOnlineOrders]   = useState([]);
   const [storeSettings,  setStoreSettings]  = useState(null);
+  const [loyaltySettings, setLoyaltySettings] = useState({
+    points_per_rupee: 0.01,
+    rupees_per_point: 1.0,
+    min_points_to_redeem: 50,
+    enable_loyalty: true
+  });
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState(null);
   const [cart,     setCart]     = useState(loadCart);
@@ -40,7 +46,7 @@ export function StoreProvider({ children }) {
     setLoading(true);
     setError(null);
     try {
-      const [prods, batchesData, { data: settingsData, error: e3 }] =
+      const [prods, batchesData, { data: settingsData, error: e3 }, { data: loyaltyData }] =
         await Promise.all([
           fetchAllRows(
             'products',
@@ -53,6 +59,7 @@ export function StoreProvider({ children }) {
             (q) => q.order('created_at', { ascending: false })
           ),
           supabase.from('store_settings').select('*').limit(1).maybeSingle(),
+          supabase.from('loyalty_settings').select('*').limit(1).maybeSingle().catch(() => ({ data: null })),
         ]);
 
       if (e3) console.warn("Failed to load store settings", e3);
@@ -60,6 +67,7 @@ export function StoreProvider({ children }) {
       setProducts(prods || []);
       setBatches(batchesData || []);
       setStoreSettings(settingsData || { delivery_charge: 0, free_delivery_threshold: 0 });
+      if (loyaltyData) setLoyaltySettings(loyaltyData);
     } catch (err) {
       console.error('Supabase fetch error:', err);
       setError(err?.message || 'Failed to load data.');
@@ -294,14 +302,33 @@ export function StoreProvider({ children }) {
     }
   }, []);
 
-  const placeOnlineOrder = useCallback(async (customerDetails) => {
+  const checkCustomerLoyalty = useCallback(async (phone) => {
+    const rawPhone = (phone || '').trim().replace(/\D/g, '');
+    if (!rawPhone || rawPhone.length < 5) return null;
+    try {
+      const { data, error } = await supabase
+        .from('customers')
+        .select('*')
+        .or(`phone.eq.${rawPhone},phone.ilike.%${rawPhone.slice(-10)}`)
+        .limit(1)
+        .maybeSingle();
+      if (!error && data) return data;
+    } catch (err) {
+      console.warn('Customer loyalty lookup error:', err);
+    }
+    return null;
+  }, []);
+
+  const placeOnlineOrder = useCallback(async (customerDetails, loyaltyRedemption = null) => {
     if (cart.length === 0) throw new Error("Cart is empty");
     
     // Calculate delivery fee
     const deliveryFee = storeSettings && cartTotal < (storeSettings.free_delivery_threshold || 0) 
       ? (storeSettings.delivery_charge || 0) 
       : 0;
-    const finalTotal = cartTotal + deliveryFee;
+    
+    const loyaltyDiscount = Number(loyaltyRedemption?.discount) || 0;
+    const finalTotal = Math.max(0, cartTotal + deliveryFee - loyaltyDiscount);
 
     // Create order record
     const orderNo = `ORD-${Date.now()}`;
@@ -330,10 +357,93 @@ export function StoreProvider({ children }) {
     
     const { error: itemsErr } = await supabase.from('online_order_items').insert(orderItems);
     if (itemsErr) throw itemsErr;
+
+    // ── Omnichannel Loyalty Sync ──
+    const cleanPhone = (customerDetails.phone || '').trim();
+    if (cleanPhone && loyaltySettings?.enable_loyalty) {
+      try {
+        const rate = Number(loyaltySettings?.points_per_rupee) || 0.01;
+        const pointsEarned = Math.floor(finalTotal * rate);
+        const redeemedPoints = Number(loyaltyRedemption?.points) || 0;
+
+        const { data: existingCust } = await supabase
+          .from('customers')
+          .select('*')
+          .eq('phone', cleanPhone)
+          .maybeSingle();
+
+        const vipSpend = Number(loyaltySettings?.vip_min_spend) || 30000;
+        const goldSpend = Number(loyaltySettings?.gold_min_spend) || 15000;
+        const silverSpend = Number(loyaltySettings?.silver_min_spend) || 5000;
+
+        if (existingCust) {
+          const newSpend = Number(existingCust.total_spend || 0) + finalTotal;
+          const newVisits = Number(existingCust.visit_count || 0) + 1;
+          const newLifetime = Number(existingCust.lifetime_points || 0) + pointsEarned;
+          const pointsBalance = Math.max(0, Number(existingCust.loyalty_points || 0) - redeemedPoints + pointsEarned);
+          const newTier = newSpend >= vipSpend ? 'VIP' : newSpend >= goldSpend ? 'Gold' : newSpend >= silverSpend ? 'Silver' : 'Bronze';
+
+          await supabase.from('customers').update({
+            name: customerDetails.name?.trim() || existingCust.name,
+            address: customerDetails.address?.trim() || existingCust.address,
+            total_spend: newSpend,
+            visit_count: newVisits,
+            loyalty_points: pointsBalance,
+            lifetime_points: newLifetime,
+            tier: newTier,
+            last_visit_at: new Date().toISOString()
+          }).eq('id', existingCust.id);
+
+          if (redeemedPoints > 0) {
+            await supabase.from('loyalty_transactions').insert([{
+              customer_id: existingCust.id,
+              points: -redeemedPoints,
+              type: 'redeem_online',
+              order_id: newOrder.id,
+              description: `Redeemed on Online Order #${orderNo}`
+            }]).catch(() => {});
+          }
+          if (pointsEarned > 0) {
+            await supabase.from('loyalty_transactions').insert([{
+              customer_id: existingCust.id,
+              points: pointsEarned,
+              type: 'earn_online',
+              order_id: newOrder.id,
+              description: `Earned from Online Order #${orderNo}`
+            }]).catch(() => {});
+          }
+        } else {
+          const newTier = finalTotal >= vipSpend ? 'VIP' : finalTotal >= goldSpend ? 'Gold' : finalTotal >= silverSpend ? 'Silver' : 'Bronze';
+          const { data: createdCust } = await supabase.from('customers').insert([{
+            name: customerDetails.name?.trim() || 'Online Customer',
+            phone: cleanPhone,
+            address: customerDetails.address?.trim() || null,
+            total_spend: finalTotal,
+            visit_count: 1,
+            loyalty_points: pointsEarned,
+            lifetime_points: pointsEarned,
+            tier: newTier,
+            last_visit_at: new Date().toISOString()
+          }]).select().single().catch(() => ({ data: null }));
+
+          if (createdCust && pointsEarned > 0) {
+            await supabase.from('loyalty_transactions').insert([{
+              customer_id: createdCust.id,
+              points: pointsEarned,
+              type: 'earn_online',
+              order_id: newOrder.id,
+              description: `First purchase rewards from Online Order #${orderNo}`
+            }]).catch(() => {});
+          }
+        }
+      } catch (loyaltyErr) {
+        console.warn('Online loyalty sync skipped non-blocking:', loyaltyErr);
+      }
+    }
     
     setCart([]); // Clear cart on success
     return newOrder;
-  }, [cart, cartTotal, storeSettings]);
+  }, [cart, cartTotal, storeSettings, loyaltySettings]);
 
   const acceptOrder = useCallback(async (orderId) => {
     const { error } = await supabase.rpc('accept_online_order', { p_order_id: orderId });
@@ -464,8 +574,8 @@ export function StoreProvider({ children }) {
 
   // ── Context value ──────────────────────────────────────────────────────────
   const value = {
-    products, virtualProducts, brands, availableSizes, cart, cartCount, cartTotal, loading, error, batches, onlineOrders, storeSettings,
-    fetchData, refreshBatches, fetchOnlineOrders, placeOnlineOrder, acceptOrder, rejectOrder, cancelOnlineOrder,
+    products, virtualProducts, brands, availableSizes, cart, cartCount, cartTotal, loading, error, batches, onlineOrders, storeSettings, loyaltySettings,
+    fetchData, refreshBatches, fetchOnlineOrders, placeOnlineOrder, acceptOrder, rejectOrder, cancelOnlineOrder, checkCustomerLoyalty,
     addProduct, updateProduct, deleteProduct, incrementClick,
     addBrand, updateBrand, deleteBrand, addSize, updateStoreSettings,
     addToCart, removeFromCart, updateCartQty, clearCart,

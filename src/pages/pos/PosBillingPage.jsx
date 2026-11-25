@@ -66,6 +66,15 @@ const formatToDdMmYyyy = (isoStr) => {
   return isoStr;
 };
 
+const getTierColor = (tier) => {
+  switch ((tier || '').toUpperCase()) {
+    case 'VIP': return { bg: '#ede9fe', text: '#6d28d9', border: '#c4b5fd' };
+    case 'GOLD': return { bg: '#fef3c7', text: '#b45309', border: '#fcd34d' };
+    case 'SILVER': return { bg: '#f1f5f9', text: '#475569', border: '#cbd5e1' };
+    default: return { bg: '#ffedd5', text: '#9a3412', border: '#fed7aa' }; // Bronze
+  }
+};
+
 function ReceiptTemplate({ data, settings }) {
   if (!data) return null;
   const items = data.items || [];
@@ -191,6 +200,32 @@ function ReceiptTemplate({ data, settings }) {
       {/* Separator */}
       <div style={{ borderBottom: '1px solid #000', margin: '5px 0' }}></div>
 
+      {/* Loyalty Points Summary (if applicable) */}
+      {data.loyalty && (
+        <>
+          <div style={{
+            margin: '6px 0',
+            padding: '5px 8px',
+            border: '1px dashed #000',
+            borderRadius: '4px',
+            fontSize: '11px',
+            textAlign: 'center'
+          }}>
+            <div style={{ fontSize: '11.5px', fontWeight: 'bold', letterSpacing: '0.5px' }}>★ LOYALTY REWARDS ★</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '3px', fontSize: '11px' }}>
+              <span>Points Earned: <b>+{data.loyalty.pointsEarned || 0}</b></span>
+              <span>Total Points: <b>{data.loyalty.balance || 0}</b></span>
+            </div>
+            {data.loyalty.redeemedPoints > 0 && (
+              <div style={{ fontSize: '10.5px', marginTop: '2px' }}>
+                Points Redeemed: {data.loyalty.redeemedPoints} pts
+              </div>
+            )}
+          </div>
+          <div style={{ borderBottom: '1px solid #000', margin: '5px 0' }}></div>
+        </>
+      )}
+
       {/* Footer */}
       <div style={{ textAlign: 'center', marginTop: '15px' }}>
         <div style={{ fontSize: '13px', fontWeight: 'bold', fontStyle: 'italic', marginTop: '5px' }}>Thank You... Visit Again !</div>
@@ -218,7 +253,9 @@ const PosBillingPage = ({ onLogout }) => {
     parkedCarts,
     parkCart,
     resumeCart,
-    lastBillData
+    lastBillData,
+    customers,
+    loyaltySettings
   } = usePosStore();
   
   const { products, fetchData: fetchGlobalData } = useStore();
@@ -234,6 +271,7 @@ const PosBillingPage = ({ onLogout }) => {
   const [splitAmounts, setSplitAmounts] = useState({ cash: '', card: '', upi: '' });
   const [discountType, setDiscountType] = useState('amount');
   const [discountValue, setDiscountValue] = useState(0);
+  const [loyaltyRedeemed, setLoyaltyRedeemed] = useState(null); // { points, discount }
   const [showMiscDialog, setShowMiscDialog] = useState(false);
   const [miscName, setMiscName] = useState('Misc Charge');
   const [miscPrice, setMiscPrice] = useState('');
@@ -436,6 +474,53 @@ const PosBillingPage = ({ onLogout }) => {
     }
   };
 
+  // Match existing customer from phone input
+  const matchedCustomer = useMemo(() => {
+    const rawPhone = (customerInfo.phone || '').trim().replace(/\D/g, '');
+    if (!rawPhone || rawPhone.length < 5) return null;
+    return customers?.find(c => {
+      const cPhone = (c.phone || '').replace(/\D/g, '');
+      return cPhone === rawPhone || (cPhone.length >= 10 && rawPhone.length >= 10 && cPhone.slice(-10) === rawPhone.slice(-10));
+    });
+  }, [customerInfo.phone, customers]);
+
+  // Auto-fill customer name if matched from CRM and name is empty
+  useEffect(() => {
+    if (matchedCustomer?.name && !customerInfo.name) {
+      setCustomerInfo(prev => ({ ...prev, name: matchedCustomer.name }));
+    }
+  }, [matchedCustomer]);
+
+  const handleToggleRedeemPoints = () => {
+    if (loyaltyRedeemed) {
+      setLoyaltyRedeemed(null);
+      setDiscountValue(0);
+      setDiscountType('amount');
+      toast.success('Loyalty points discount removed');
+    } else {
+      if (!matchedCustomer) return;
+      const pts = Number(matchedCustomer.loyalty_points) || 0;
+      const minPts = Number(loyaltySettings?.min_points_to_redeem) || 50;
+      if (pts < minPts) {
+        toast.error(`Minimum ${minPts} points required to redeem (Customer has ${pts} pts)`);
+        return;
+      }
+      const rupeePerPt = Number(loyaltySettings?.rupees_per_point || loyaltySettings?.rupee_per_point || 1.0);
+      const ptsToUse = Math.min(pts, Math.ceil(cartSubtotal / rupeePerPt));
+      const discountToApply = Math.min(cartSubtotal, ptsToUse * rupeePerPt);
+      
+      if (discountToApply <= 0) {
+        toast.error('Cart total must be greater than 0 to redeem points');
+        return;
+      }
+
+      setLoyaltyRedeemed({ points: ptsToUse, discount: discountToApply });
+      setDiscountType('amount');
+      setDiscountValue(discountToApply);
+      toast.success(`Redeemed ${ptsToUse} points for ₹${discountToApply.toFixed(2)} discount!`);
+    }
+  };
+
   const handleCheckout = async () => {
     if (posCart.length === 0) return;
 
@@ -454,13 +539,20 @@ const PosBillingPage = ({ onLogout }) => {
 
     setCheckoutLoading(true);
     try {
-      const res = await checkoutPos(effectivePaymentMode, gstAmount, computedDiscountAmount, billingDate);
+      const res = await checkoutPos(
+        effectivePaymentMode, 
+        gstAmount, 
+        computedDiscountAmount, 
+        billingDate,
+        loyaltyRedeemed?.points > 0 ? loyaltyRedeemed : null
+      );
       // Immediately display dialog and reset checkout fields with zero delay
       setLastBillNo(res.billNo);
       setShowCheckoutDialog(true);
       setSplitAmounts({ cash: '', card: '', upi: '' });
       setDiscountValue(0);
       setDiscountType('amount');
+      setLoyaltyRedeemed(null);
       setPaymentMode('UPI');
       setSearchTerm('');
       setBillingDate(getTodayDateString());
@@ -478,6 +570,7 @@ const PosBillingPage = ({ onLogout }) => {
     clearPosCart();
     setDiscountValue(0);
     setDiscountType('amount');
+    setLoyaltyRedeemed(null);
     setPaymentMode('UPI');
     setSearchTerm('');
     setBillingDate(getTodayDateString());
@@ -489,6 +582,7 @@ const PosBillingPage = ({ onLogout }) => {
     clearPosCart();
     setDiscountValue(0);
     setDiscountType('amount');
+    setLoyaltyRedeemed(null);
     setPaymentMode('UPI');
     setSearchTerm('');
     setBillingDate(getTodayDateString());
@@ -608,6 +702,7 @@ const PosBillingPage = ({ onLogout }) => {
                 parkCart();
                 setDiscountValue(0);
                 setDiscountType('amount');
+                setLoyaltyRedeemed(null);
                 setPaymentMode('UPI');
                 setSearchTerm('');
               }}
@@ -841,9 +936,85 @@ const PosBillingPage = ({ onLogout }) => {
               type="text" 
               placeholder="Customer Phone (optional)" 
               value={customerInfo.phone}
-              onChange={e => setCustomerInfo({...customerInfo, phone: e.target.value})}
+              onChange={e => {
+                setCustomerInfo({...customerInfo, phone: e.target.value});
+                if (loyaltyRedeemed) setLoyaltyRedeemed(null);
+              }}
               style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--outline-variant)' }}
             />
+
+            {/* Loyalty Badge & 1-Click Points Redemption */}
+            {matchedCustomer && (
+              <div style={{
+                marginTop: '8px',
+                padding: '10px 12px',
+                borderRadius: '8px',
+                backgroundColor: 'var(--surface)',
+                border: '1px solid var(--outline-variant)',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{
+                      display: 'inline-block', padding: '2px 7px', borderRadius: '10px',
+                      fontSize: '11px', fontWeight: '700',
+                      backgroundColor: getTierColor(matchedCustomer.tier).bg,
+                      color: getTierColor(matchedCustomer.tier).text,
+                      border: `1px solid ${getTierColor(matchedCustomer.tier).border}`
+                    }}>
+                      {matchedCustomer.tier || 'Bronze'}
+                    </span>
+                    <span style={{ fontSize: '13px', fontWeight: '700', color: '#16a34a' }}>
+                      ★ {matchedCustomer.loyalty_points || 0} pts
+                    </span>
+                  </div>
+                  <span style={{ fontSize: '11.5px', color: 'var(--on-surface-variant)' }}>
+                    {matchedCustomer.visit_count || 1} visit{(matchedCustomer.visit_count || 1) !== 1 ? 's' : ''} • ₹{Number(matchedCustomer.total_spend || 0).toLocaleString('en-IN')}
+                  </span>
+                </div>
+
+                {loyaltySettings?.enable_loyalty && (
+                  <div style={{ marginTop: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '6px', borderTop: '1px dashed var(--outline-variant)' }}>
+                    <div style={{ fontSize: '12px', color: 'var(--on-surface)' }}>
+                      {loyaltyRedeemed ? (
+                        <span style={{ color: '#16a34a', fontWeight: '600' }}>
+                          ✓ {loyaltyRedeemed.points} pts applied (-₹{loyaltyRedeemed.discount.toFixed(2)})
+                        </span>
+                      ) : (
+                        <span>
+                          Value: ₹{((matchedCustomer.loyalty_points || 0) * (loyaltySettings?.rupees_per_point || loyaltySettings?.rupee_per_point || 1)).toFixed(2)}
+                          {Number(matchedCustomer.loyalty_points || 0) < (loyaltySettings?.min_points_to_redeem || 50) && (
+                            <span style={{ fontSize: '11px', color: 'var(--on-surface-variant)', marginLeft: '4px' }}>
+                              (Min {loyaltySettings?.min_points_to_redeem || 50} pts to redeem)
+                            </span>
+                          )}
+                        </span>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleToggleRedeemPoints}
+                      disabled={!loyaltyRedeemed && (Number(matchedCustomer.loyalty_points || 0) < (loyaltySettings?.min_points_to_redeem || 50) || cartSubtotal <= 0)}
+                      style={{
+                        padding: '4px 10px',
+                        fontSize: '11.5px',
+                        fontWeight: '600',
+                        borderRadius: '6px',
+                        border: loyaltyRedeemed ? '1px solid var(--error)' : '1px solid #16a34a',
+                        backgroundColor: loyaltyRedeemed ? 'transparent' : '#16a34a',
+                        color: loyaltyRedeemed ? 'var(--error)' : '#ffffff',
+                        cursor: (!loyaltyRedeemed && (Number(matchedCustomer.loyalty_points || 0) < (loyaltySettings?.min_points_to_redeem || 50) || cartSubtotal <= 0)) ? 'not-allowed' : 'pointer',
+                        opacity: (!loyaltyRedeemed && (Number(matchedCustomer.loyalty_points || 0) < (loyaltySettings?.min_points_to_redeem || 50) || cartSubtotal <= 0)) ? 0.5 : 1,
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      {loyaltyRedeemed ? 'Remove Points' : 'Redeem Points'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div style={{ flex: 1, overflowY: 'auto', borderTop: '1px solid var(--outline-variant)', borderBottom: '1px solid var(--outline-variant)', padding: '16px 0' }}>
@@ -1063,6 +1234,7 @@ const PosBillingPage = ({ onLogout }) => {
                   setSplitAmounts({ cash: '', card: '', upi: '' });
                   setDiscountValue(0);
                   setDiscountType('amount');
+                  setLoyaltyRedeemed(null);
                   setPaymentMode('UPI');
                   setSearchTerm('');
                   setBillingDate(getTodayDateString());

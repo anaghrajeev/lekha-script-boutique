@@ -17,6 +17,7 @@ const PosBatchesPage = React.lazy(() => import('./pages/pos/PosBatchesPage'));
 const PosReturnsPage = React.lazy(() => import('./pages/pos/PosReturnsPage'));
 const PosAnalyticsPage = React.lazy(() => import('./pages/pos/PosAnalyticsPage'));
 const PosSettingsPage = React.lazy(() => import('./pages/pos/PosSettingsPage'));
+const PosCrmPage = React.lazy(() => import('./pages/pos/PosCrmPage'));
 import { StoreProvider, useStore } from './store/useStore.jsx';
 import { PosStoreProvider, usePosStore } from './store/usePosStore.jsx';
 import { useAuth } from './store/useAuth.js';
@@ -93,6 +94,8 @@ function AppInner() {
         return isLoggedIn ? <PosAnalyticsPage onLogout={logout} /> : <AdminLogin onLogin={login} />;
       case 'pos-settings':
         return isLoggedIn ? <PosSettingsPage onLogout={logout} /> : <AdminLogin onLogin={login} />;
+      case 'pos-crm':
+        return isLoggedIn ? <PosCrmPage onLogout={logout} /> : <AdminLogin onLogin={login} />;
       default:        return <HomePage />;
     }
   };

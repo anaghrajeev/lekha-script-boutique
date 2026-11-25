@@ -80,6 +80,27 @@ const PosLayout = ({ children, activeTab, onLogout }) => {
               padding: '12px', 
               textAlign: 'left', 
               borderRadius: '8px', 
+              backgroundColor: activeTab === 'crm' ? 'var(--primary-container)' : 'transparent',
+              color: activeTab === 'crm' ? 'var(--on-primary-container)' : 'var(--on-surface)',
+              fontWeight: activeTab === 'crm' ? '600' : '400',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              cursor: 'pointer',
+              border: 'none'
+            }}
+            onClick={() => navigate('#/pos/crm')}
+            id="pos-nav-crm"
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>loyalty</span>
+            CRM & Loyalty
+          </button>
+
+          <button 
+            style={{ 
+              padding: '12px', 
+              textAlign: 'left', 
+              borderRadius: '8px', 
               backgroundColor: activeTab === 'analytics' ? 'var(--primary-container)' : 'transparent',
               color: activeTab === 'analytics' ? 'var(--on-primary-container)' : 'var(--on-surface)',
               fontWeight: activeTab === 'analytics' ? '600' : '400',

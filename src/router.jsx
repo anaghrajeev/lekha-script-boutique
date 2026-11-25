@@ -27,6 +27,7 @@ export function parseHash(hash) {
     if (segments[1] === 'returns') return { route: 'pos-returns' };
     if (segments[1] === 'analytics') return { route: 'pos-analytics' };
     if (segments[1] === 'batches') return { route: 'pos-batches' };
+    if (segments[1] === 'crm') return { route: 'pos-crm' };
     return { route: 'pos' };
   }
 

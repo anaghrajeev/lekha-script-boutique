@@ -74,7 +74,17 @@ function CartItemRow({ item, onQtyChange, onRemove }) {
 
 // ── Main CartPage ─────────────────────────────────────────────────────────────
 export default function CartPage() {
-  const { cart, cartTotal, removeFromCart, updateCartQty, clearCart, placeOnlineOrder, storeSettings } = useStore();
+  const { 
+    cart, 
+    cartTotal, 
+    removeFromCart, 
+    updateCartQty, 
+    clearCart, 
+    placeOnlineOrder, 
+    storeSettings,
+    loyaltySettings,
+    checkCustomerLoyalty
+  } = useStore();
   
   const [showCheckout, setShowCheckout] = useState(() => {
     return window.location.hash.includes('checkout=true');
@@ -94,11 +104,46 @@ export default function CartPage() {
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [loading, setLoading] = useState(false);
   const [customer, setCustomer] = useState({ name: '', phone: '', address: '' });
+  const [loyaltyProfile, setLoyaltyProfile] = useState(null);
+  const [redeemLoyalty, setRedeemLoyalty] = useState(false);
+
+  // Auto-detect existing customer & loyalty profile when phone number is entered
+  useEffect(() => {
+    const rawPhone = (customer.phone || '').trim().replace(/\D/g, '');
+    if (rawPhone.length >= 10) {
+      checkCustomerLoyalty?.(rawPhone).then(profile => {
+        if (profile) {
+          setLoyaltyProfile(profile);
+          setCustomer(prev => ({
+            ...prev,
+            name: prev.name || profile.name || '',
+            address: prev.address || profile.address || ''
+          }));
+        } else {
+          setLoyaltyProfile(null);
+          setRedeemLoyalty(false);
+        }
+      });
+    } else {
+      setLoyaltyProfile(null);
+      setRedeemLoyalty(false);
+    }
+  }, [customer.phone, checkCustomerLoyalty]);
 
   const deliveryFee = storeSettings && cartTotal < (storeSettings.free_delivery_threshold || 0)
     ? (storeSettings.delivery_charge || 0)
     : 0;
-  const finalTotal = cartTotal + deliveryFee;
+
+  // Loyalty calculations
+  const rupeePerPoint = Number(loyaltySettings?.rupees_per_point || loyaltySettings?.rupee_per_point || 1.0);
+  const minPoints = Number(loyaltySettings?.min_points_to_redeem || 50);
+  const availablePoints = Number(loyaltyProfile?.loyalty_points || 0);
+  const canRedeem = Boolean(loyaltySettings?.enable_loyalty && availablePoints >= minPoints);
+
+  const pointsToUse = canRedeem ? Math.min(availablePoints, Math.ceil(cartTotal / rupeePerPoint)) : 0;
+  const loyaltyDiscountAmount = (redeemLoyalty && canRedeem) ? Math.min(cartTotal, pointsToUse * rupeePerPoint) : 0;
+
+  const finalTotal = Math.max(0, cartTotal + deliveryFee - loyaltyDiscountAmount);
 
   const submitOrder = async (e) => {
     e.preventDefault();
@@ -106,6 +151,11 @@ export default function CartPage() {
       toast.error("Please fill all details");
       return;
     }
+
+    const loyaltyRedemption = (redeemLoyalty && canRedeem && loyaltyDiscountAmount > 0) ? {
+      points: pointsToUse,
+      discount: loyaltyDiscountAmount
+    } : null;
     
     initializePayment({
       amount: finalTotal,
@@ -114,10 +164,10 @@ export default function CartPage() {
       onSuccess: async (paymentDetails) => {
         setLoading(true);
         try {
-          // You could optionally pass paymentDetails to placeOnlineOrder to save paymentId in the DB
-          await placeOnlineOrder(customer);
+          await placeOnlineOrder(customer, loyaltyRedemption);
           setOrderPlaced(true);
           setShowCheckout(false);
+          setRedeemLoyalty(false);
           toast.success("Order placed successfully!");
         } catch (err) {
           toast.error("Failed to record order: " + err.message);
@@ -225,6 +275,13 @@ export default function CartPage() {
                 </div>
               )}
 
+              {loyaltyDiscountAmount > 0 && (
+                <div className="summary-total-row" style={{ fontWeight: '500', fontSize: '15px', color: '#16a34a', marginTop: '12px' }}>
+                  <span>Loyalty Reward ({pointsToUse} pts)</span>
+                  <span className="summary-total">-₹{loyaltyDiscountAmount.toLocaleString()}</span>
+                </div>
+              )}
+
               <div className="summary-divider" style={{ margin: '16px 0' }} />
 
               <div className="summary-total-row">
@@ -235,7 +292,50 @@ export default function CartPage() {
               {showCheckout ? (
                 <form onSubmit={submitOrder} style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   <input type="text" placeholder="Full Name" required value={customer.name} onChange={e => setCustomer({...customer, name: e.target.value})} style={{ padding: '12px', borderRadius: '8px', border: '1px solid var(--outline)' }} />
-                  <input type="tel" placeholder="Phone Number" required value={customer.phone} onChange={e => setCustomer({...customer, phone: e.target.value})} style={{ padding: '12px', borderRadius: '8px', border: '1px solid var(--outline)' }} />
+                  <input type="tel" placeholder="Phone Number (10 digits)" required value={customer.phone} onChange={e => setCustomer({...customer, phone: e.target.value})} style={{ padding: '12px', borderRadius: '8px', border: '1px solid var(--outline)' }} />
+
+                  {/* Unified Omnichannel Loyalty Recognition */}
+                  {loyaltyProfile && (
+                    <div style={{
+                      padding: '12px 14px',
+                      borderRadius: '8px',
+                      backgroundColor: 'var(--surface-container-high, #f8fafc)',
+                      border: '1px solid var(--outline-variant, #e2e8f0)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '8px'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <div style={{ fontWeight: '600', fontSize: '13.5px', color: 'var(--on-surface)' }}>
+                            Welcome back, {loyaltyProfile.name}!
+                          </div>
+                          <div style={{ fontSize: '12px', color: 'var(--on-surface-variant)', marginTop: '2px' }}>
+                            Tier: <strong style={{ color: 'var(--primary)' }}>{loyaltyProfile.tier || 'Bronze'}</strong> | Points: <strong style={{ color: '#16a34a' }}>★ {availablePoints} pts</strong>
+                          </div>
+                        </div>
+                      </div>
+
+                      {canRedeem ? (
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '500', color: '#16a34a', marginTop: '4px' }}>
+                          <input 
+                            type="checkbox" 
+                            checked={redeemLoyalty} 
+                            onChange={e => setRedeemLoyalty(e.target.checked)} 
+                            style={{ width: '16px', height: '16px', accentColor: '#16a34a', cursor: 'pointer' }}
+                          />
+                          <span>Redeem {pointsToUse} points for <strong>₹{(pointsToUse * rupeePerPoint).toFixed(2)}</strong> discount</span>
+                        </label>
+                      ) : (
+                        <div style={{ fontSize: '11.5px', color: 'var(--on-surface-variant)' }}>
+                          {availablePoints > 0 
+                            ? `Earn ${minPoints - availablePoints} more points to unlock reward redemption (Min ${minPoints} pts).`
+                            : `You will earn loyalty points on this order!`}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <textarea placeholder="Delivery Address" required value={customer.address} onChange={e => setCustomer({...customer, address: e.target.value})} style={{ padding: '12px', borderRadius: '8px', border: '1px solid var(--outline)', minHeight: '80px' }} />
                   
                   <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
