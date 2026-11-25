@@ -689,13 +689,13 @@ export function PosStoreProvider({ children }) {
     }
   }, [posCart, customerInfo, clearPosCart, fetchPosData]);
 
-  // Delete Bill with Automatic CRM & Loyalty Reversal (Option A)
+  // Delete Bill with Automatic CRM & Loyalty Reversal (Option A with Net Return Deduction)
   const deleteBill = useCallback(async (billId) => {
     try {
       let targetBill = bills.find(b => b.id === billId);
-      if (!targetBill) {
-        const { data } = await supabase.from('bills').select('*').eq('id', billId).maybeSingle();
-        targetBill = data;
+      if (!targetBill || !targetBill.items) {
+        const { data } = await supabase.from('bills').select('*, items:bill_items(*)').eq('id', billId).maybeSingle();
+        if (data) targetBill = data;
       }
 
       const cleanPhone = (targetBill?.customer_phone || '').trim();
@@ -708,34 +708,50 @@ export function PosStoreProvider({ children }) {
             .maybeSingle();
 
           if (cust) {
+            // Calculate any amount already returned on this bill previously
+            const alreadyReturnedAmount = (targetBill?.items || []).reduce((sum, item) => {
+              const retQty = Number(item.returned_quantity) || 0;
+              const uPrice = Number(item.unit_price) || 0;
+              return sum + (retQty * uPrice);
+            }, 0);
+
+            const billTotal = Number(targetBill?.total || 0);
+            // Net remaining spend on this bill that hasn't been refunded yet
+            const netRemainingSpend = Math.max(0, billTotal - alreadyReturnedAmount);
+
             // Find points earned and redeemed for this bill
             const { data: txList } = await supabase
               .from('loyalty_transactions')
               .select('*')
               .eq('bill_id', billId);
 
-            let pointsToDeduct = 0;
-            let pointsToRefund = 0;
+            let pointsEarnedOnBill = 0;
+            let pointsAlreadyReversedOnReturns = 0;
+            let pointsRedeemedOnBill = 0;
 
             if (txList && txList.length > 0) {
               txList.forEach(tx => {
                 const ptVal = Number(tx.points) || 0;
-                if (ptVal > 0) {
-                  pointsToDeduct += ptVal;
-                } else if (ptVal < 0) {
-                  pointsToRefund += Math.abs(ptVal);
+                if (tx.type === 'earn_pos' || (ptVal > 0 && tx.type !== 'refund')) {
+                  pointsEarnedOnBill += ptVal;
+                } else if (tx.type === 'reverse_return') {
+                  pointsAlreadyReversedOnReturns += Math.abs(ptVal);
+                } else if (tx.type === 'redeem_pos' || (ptVal < 0 && tx.type !== 'reverse_return')) {
+                  pointsRedeemedOnBill += Math.abs(ptVal);
                 }
               });
             } else {
               const rate = Number(loyaltySettings?.points_per_rupee) || 0.01;
-              pointsToDeduct = Math.floor(Number(targetBill.total || 0) * rate);
+              pointsEarnedOnBill = Math.floor(billTotal * rate);
             }
 
-            const billTotal = Number(targetBill.total || 0);
-            const newSpend = Math.max(0, Number(cust.total_spend || 0) - billTotal);
+            // Only deduct remaining points that were not already reversed by prior returns
+            const netPointsToDeduct = Math.max(0, pointsEarnedOnBill - pointsAlreadyReversedOnReturns);
+
+            const newSpend = Math.max(0, Number(cust.total_spend || 0) - netRemainingSpend);
             const newVisits = Math.max(0, Number(cust.visit_count || 1) - 1);
-            const newPoints = Math.max(0, Number(cust.loyalty_points || 0) - pointsToDeduct + pointsToRefund);
-            const newLifetime = Math.max(0, Number(cust.lifetime_points || 0) - pointsToDeduct);
+            const newPoints = Math.max(0, Number(cust.loyalty_points || 0) - netPointsToDeduct + pointsRedeemedOnBill);
+            const newLifetime = Math.max(0, Number(cust.lifetime_points || 0) - netPointsToDeduct);
 
             const vipSpend = Number(loyaltySettings?.vip_min_spend) || 30000;
             const goldSpend = Number(loyaltySettings?.gold_min_spend) || 15000;
@@ -750,12 +766,12 @@ export function PosStoreProvider({ children }) {
               tier: newTier
             }).eq('id', cust.id);
 
-            const netAdjustment = pointsToRefund - pointsToDeduct;
+            const netAdjustment = pointsRedeemedOnBill - netPointsToDeduct;
             await supabase.from('loyalty_transactions').insert([{
               customer_id: cust.id,
               points: netAdjustment,
               type: 'reverse_bill_delete',
-              description: `Points adjustment for deleted Bill #${targetBill.bill_no || ''} (${pointsToRefund > 0 ? `+${pointsToRefund} pts refunded, ` : ''}-${pointsToDeduct} pts deducted)`
+              description: `Points adjustment for deleted Bill #${targetBill.bill_no || ''} (${pointsRedeemedOnBill > 0 ? `+${pointsRedeemedOnBill} pts refunded, ` : ''}-${netPointsToDeduct} net pts deducted)`
             }]).catch(() => {});
 
             // Update in-memory CRM state immediately
