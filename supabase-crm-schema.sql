@@ -23,8 +23,13 @@ CREATE INDEX IF NOT EXISTS idx_customers_name ON customers(name);
 CREATE INDEX IF NOT EXISTS idx_customers_total_spend ON customers(total_spend DESC);
 CREATE INDEX IF NOT EXISTS idx_customers_last_visit ON customers(last_visit_at DESC);
 
--- Disable Row Level Security (RLS) for seamless client operations
-ALTER TABLE customers DISABLE ROW LEVEL SECURITY;
+-- Grant permissions to Supabase roles
+GRANT ALL ON TABLE customers TO anon, authenticated, service_role;
+
+-- Enable RLS with full public policy
+ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public full access customers" ON customers;
+CREATE POLICY "Public full access customers" ON customers FOR ALL TO public USING (true) WITH CHECK (true);
 
 -- ==============================================================================
 -- 2. Create loyalty_settings table
@@ -42,7 +47,11 @@ CREATE TABLE IF NOT EXISTS loyalty_settings (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-ALTER TABLE loyalty_settings DISABLE ROW LEVEL SECURITY;
+GRANT ALL ON TABLE loyalty_settings TO anon, authenticated, service_role;
+
+ALTER TABLE loyalty_settings ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public full access loyalty_settings" ON loyalty_settings;
+CREATE POLICY "Public full access loyalty_settings" ON loyalty_settings FOR ALL TO public USING (true) WITH CHECK (true);
 
 -- Insert default row if none exists
 INSERT INTO loyalty_settings (
@@ -75,7 +84,11 @@ CREATE TABLE IF NOT EXISTS loyalty_transactions (
 CREATE INDEX IF NOT EXISTS idx_loyalty_tx_customer ON loyalty_transactions(customer_id);
 CREATE INDEX IF NOT EXISTS idx_loyalty_tx_created ON loyalty_transactions(created_at DESC);
 
-ALTER TABLE loyalty_transactions DISABLE ROW LEVEL SECURITY;
+GRANT ALL ON TABLE loyalty_transactions TO anon, authenticated, service_role;
+
+ALTER TABLE loyalty_transactions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public full access loyalty_transactions" ON loyalty_transactions;
+CREATE POLICY "Public full access loyalty_transactions" ON loyalty_transactions FOR ALL TO public USING (true) WITH CHECK (true);
 
 -- ==============================================================================
 -- 4. Historical Backfill from existing Bills and Online Orders
@@ -133,4 +146,18 @@ UPDATE customers
 SET 
   loyalty_points = FLOOR(total_spend * 0.01),
   lifetime_points = FLOOR(total_spend * 0.01)
-WHERE loyalty_points = 0 AND total_spend > 0;
+WHERE total_spend > 0;
+
+-- ==============================================================================
+-- 5. Verification: Return all migrated customers
+-- ==============================================================================
+SELECT 
+  name, 
+  phone, 
+  tier, 
+  total_spend as "Total Spend (₹)", 
+  visit_count as "Visits", 
+  loyalty_points as "Loyalty Points", 
+  to_char(last_visit_at, 'DD-MM-YYYY') as "Last Visit"
+FROM customers 
+ORDER BY total_spend DESC;
