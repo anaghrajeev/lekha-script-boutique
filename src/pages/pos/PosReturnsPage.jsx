@@ -53,7 +53,7 @@ function formatReceiptSize(rawSize) {
 }
 
 const PosReturnsPage = ({ onLogout }) => {
-  const { bills, fetchBills, fetchPosData, deleteBill, settings } = usePosStore();
+  const { bills, fetchBills, fetchPosData, deleteBill, settings, processItemReturnLoyalty } = usePosStore();
   const { fetchData: fetchGlobalData } = useStore();
   const [loading, setLoading] = useState(false);
   const [selectedBill, setSelectedBill] = useState(null);
@@ -113,6 +113,11 @@ const PosReturnsPage = ({ onLogout }) => {
         p_return_items: itemsToReturn
       });
       if (error) throw error;
+      
+      // Automatically adjust customer spend and points in CRM
+      if (processItemReturnLoyalty) {
+        await processItemReturnLoyalty(selectedBill, itemsToReturn);
+      }
       
       toast.success('Return processed successfully!');
       setSelectedBill(null);

@@ -689,9 +689,90 @@ export function PosStoreProvider({ children }) {
     }
   }, [posCart, customerInfo, clearPosCart, fetchPosData]);
 
-  // Delete Bill
+  // Delete Bill with Automatic CRM & Loyalty Reversal (Option A)
   const deleteBill = useCallback(async (billId) => {
     try {
+      let targetBill = bills.find(b => b.id === billId);
+      if (!targetBill) {
+        const { data } = await supabase.from('bills').select('*').eq('id', billId).maybeSingle();
+        targetBill = data;
+      }
+
+      const cleanPhone = (targetBill?.customer_phone || '').trim();
+      if (cleanPhone) {
+        try {
+          const { data: cust } = await supabase
+            .from('customers')
+            .select('*')
+            .eq('phone', cleanPhone)
+            .maybeSingle();
+
+          if (cust) {
+            // Find points earned and redeemed for this bill
+            const { data: txList } = await supabase
+              .from('loyalty_transactions')
+              .select('*')
+              .eq('bill_id', billId);
+
+            let pointsToDeduct = 0;
+            let pointsToRefund = 0;
+
+            if (txList && txList.length > 0) {
+              txList.forEach(tx => {
+                const ptVal = Number(tx.points) || 0;
+                if (ptVal > 0) {
+                  pointsToDeduct += ptVal;
+                } else if (ptVal < 0) {
+                  pointsToRefund += Math.abs(ptVal);
+                }
+              });
+            } else {
+              const rate = Number(loyaltySettings?.points_per_rupee) || 0.01;
+              pointsToDeduct = Math.floor(Number(targetBill.total || 0) * rate);
+            }
+
+            const billTotal = Number(targetBill.total || 0);
+            const newSpend = Math.max(0, Number(cust.total_spend || 0) - billTotal);
+            const newVisits = Math.max(0, Number(cust.visit_count || 1) - 1);
+            const newPoints = Math.max(0, Number(cust.loyalty_points || 0) - pointsToDeduct + pointsToRefund);
+            const newLifetime = Math.max(0, Number(cust.lifetime_points || 0) - pointsToDeduct);
+
+            const vipSpend = Number(loyaltySettings?.vip_min_spend) || 30000;
+            const goldSpend = Number(loyaltySettings?.gold_min_spend) || 15000;
+            const silverSpend = Number(loyaltySettings?.silver_min_spend) || 5000;
+            const newTier = newSpend >= vipSpend ? 'VIP' : newSpend >= goldSpend ? 'Gold' : newSpend >= silverSpend ? 'Silver' : 'Bronze';
+
+            await supabase.from('customers').update({
+              total_spend: newSpend,
+              visit_count: newVisits,
+              loyalty_points: newPoints,
+              lifetime_points: newLifetime,
+              tier: newTier
+            }).eq('id', cust.id);
+
+            const netAdjustment = pointsToRefund - pointsToDeduct;
+            await supabase.from('loyalty_transactions').insert([{
+              customer_id: cust.id,
+              points: netAdjustment,
+              type: 'reverse_bill_delete',
+              description: `Points adjustment for deleted Bill #${targetBill.bill_no || ''} (${pointsToRefund > 0 ? `+${pointsToRefund} pts refunded, ` : ''}-${pointsToDeduct} pts deducted)`
+            }]).catch(() => {});
+
+            // Update in-memory CRM state immediately
+            setCustomers(prev => prev.map(c => c.id === cust.id ? {
+              ...c,
+              total_spend: newSpend,
+              visit_count: newVisits,
+              loyalty_points: newPoints,
+              lifetime_points: newLifetime,
+              tier: newTier
+            } : c));
+          }
+        } catch (crmErr) {
+          console.warn('CRM reversal error on bill delete:', crmErr);
+        }
+      }
+
       const { error } = await supabase.rpc('delete_pos_bill', { p_bill_id: billId });
       if (error) throw error;
       
@@ -703,7 +784,70 @@ export function PosStoreProvider({ children }) {
       console.error('Delete bill failed:', err);
       throw err;
     }
-  }, [fetchPosData]);
+  }, [bills, loyaltySettings, fetchPosData]);
+
+  // Process Item Return in CRM & Loyalty (Option A)
+  const processItemReturnLoyalty = useCallback(async (bill, itemsToReturn) => {
+    const cleanPhone = (bill?.customer_phone || '').trim();
+    if (!cleanPhone) return;
+
+    try {
+      const { data: cust } = await supabase
+        .from('customers')
+        .select('*')
+        .eq('phone', cleanPhone)
+        .maybeSingle();
+
+      if (!cust) return;
+
+      const totalRefundAmount = itemsToReturn.reduce((sum, r) => {
+        const item = (bill.items || []).find(i => i.id === r.bill_item_id);
+        const unitPrice = Number(item?.unit_price || 0);
+        return sum + (unitPrice * r.return_qty);
+      }, 0);
+
+      if (totalRefundAmount <= 0) return;
+
+      const rate = Number(loyaltySettings?.points_per_rupee) || 0.01;
+      const pointsToDeduct = Math.floor(totalRefundAmount * rate);
+
+      const newSpend = Math.max(0, Number(cust.total_spend || 0) - totalRefundAmount);
+      const newPoints = Math.max(0, Number(cust.loyalty_points || 0) - pointsToDeduct);
+      const newLifetime = Math.max(0, Number(cust.lifetime_points || 0) - pointsToDeduct);
+
+      const vipSpend = Number(loyaltySettings?.vip_min_spend) || 30000;
+      const goldSpend = Number(loyaltySettings?.gold_min_spend) || 15000;
+      const silverSpend = Number(loyaltySettings?.silver_min_spend) || 5000;
+      const newTier = newSpend >= vipSpend ? 'VIP' : newSpend >= goldSpend ? 'Gold' : newSpend >= silverSpend ? 'Silver' : 'Bronze';
+
+      await supabase.from('customers').update({
+        total_spend: newSpend,
+        loyalty_points: newPoints,
+        lifetime_points: newLifetime,
+        tier: newTier
+      }).eq('id', cust.id);
+
+      if (pointsToDeduct > 0) {
+        await supabase.from('loyalty_transactions').insert([{
+          customer_id: cust.id,
+          points: -pointsToDeduct,
+          type: 'reverse_return',
+          bill_id: bill.id,
+          description: `Deducted ${pointsToDeduct} pts for return of items (₹${totalRefundAmount.toFixed(2)}) on Bill #${bill.bill_no || ''}`
+        }]).catch(() => {});
+      }
+
+      setCustomers(prev => prev.map(c => c.id === cust.id ? {
+        ...c,
+        total_spend: newSpend,
+        loyalty_points: newPoints,
+        lifetime_points: newLifetime,
+        tier: newTier
+      } : c));
+    } catch (err) {
+      console.warn('Item return loyalty sync error:', err);
+    }
+  }, [loyaltySettings]);
 
   const updateBatch = useCallback(async (batchId, updates) => {
     try {
@@ -801,6 +945,7 @@ export function PosStoreProvider({ children }) {
     resumeCart,
     lastBillData,
     deleteBill,
+    processItemReturnLoyalty,
     updateBatch,
     deleteBatch,
     fetchSuppliers,
